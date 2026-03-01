@@ -257,7 +257,11 @@ class FcmService:
             notification = PushNotificationRequest(
                 title=validated.title,
                 body=validated.body,
-                data={"type": validated.type, "session_id": validated.session_id},
+                data={
+                    "type": validated.type,
+                    "session_id": validated.session_id,
+                    "body": validated.body,
+                },
             )
         except Exception:
             logger.exception("Failed to create notification request from payload")
