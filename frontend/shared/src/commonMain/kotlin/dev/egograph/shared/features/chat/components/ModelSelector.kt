@@ -1,6 +1,7 @@
 package dev.egograph.shared.features.chat.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,7 +48,9 @@ fun ModelSelector(
     onModelSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isDark = isSystemInDarkTheme()
     val dimens = EgoGraphThemeTokens.dimens
+    val shapes = EgoGraphThemeTokens.shapes
     var expanded by remember { mutableStateOf(false) }
 
     val selectedModel = models.find { it.id == selectedModelId }
@@ -63,38 +66,44 @@ fun ModelSelector(
 
     val isEnabled = !isLoading && error == null && models.isNotEmpty()
 
+    val selectorBg = if (isDark) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primaryContainer
+    val selectorFg = MaterialTheme.colorScheme.onSurfaceVariant
+
     Box(
         modifier =
             modifier
                 .testTagResourceId("model_selector"),
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            shape = MaterialTheme.shapes.small,
+            color = selectorBg,
+            contentColor = selectorFg,
+            shape = shapes.radiusSm,
             modifier =
                 Modifier
                     .testTagResourceId("model_selector_surface")
-                    .widthIn(max = dimens.size160)
+                    .widthIn(max = dimens.modelSelectorMaxWidth)
                     .clickable(enabled = isEnabled) { expanded = !expanded },
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = dimens.space10, vertical = dimens.space4),
+                modifier = Modifier.padding(horizontal = dimens.space8, vertical = dimens.space4),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = displayText,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    color = selectorFg,
                     modifier =
                         Modifier
-                            .testTagResourceId("model_selector_label"),
+                            .testTagResourceId("model_selector_label")
+                            .weight(1f),
                 )
                 Icon(
                     imageVector = Icons.Filled.ArrowDropDown,
                     contentDescription = null,
-                    modifier = Modifier.padding(start = dimens.space4),
+                    tint = selectorFg,
+                    modifier = Modifier.padding(start = dimens.space2),
                 )
             }
         }
@@ -103,6 +112,7 @@ fun ModelSelector(
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
+                containerColor = selectorBg,
             ) {
                 models.forEach { model ->
                     DropdownMenuItem(
@@ -110,11 +120,11 @@ fun ModelSelector(
                             Column {
                                 Text(
                                     text = model.name,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = MaterialTheme.typography.bodyMedium,
                                 )
                                 Text(
                                     text = formatCost(model),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }

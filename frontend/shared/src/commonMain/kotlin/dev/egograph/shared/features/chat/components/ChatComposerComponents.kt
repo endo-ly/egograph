@@ -2,14 +2,15 @@ package dev.egograph.shared.features.chat.components
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import dev.egograph.shared.core.domain.model.LLMModel
 import dev.egograph.shared.core.ui.common.testTagResourceId
@@ -35,7 +37,7 @@ import dev.egograph.shared.core.ui.theme.EgoGraphThemeTokens
 
 internal object ChatComposerMetrics {
     val outerHorizontalPadding
-        @Composable get() = EgoGraphThemeTokens.dimens.space20
+        @Composable get() = EgoGraphThemeTokens.dimens.space12
 
     val outerVerticalPadding
         @Composable get() = EgoGraphThemeTokens.dimens.space12
@@ -46,8 +48,8 @@ internal object ChatComposerMetrics {
     val containerMinHeight
         @Composable get() = EgoGraphThemeTokens.dimens.chatComposerMinHeight
 
-    const val INPUT_MIN_LINES = 2
-    const val INPUT_MAX_LINES = 5
+    const val INPUT_MIN_LINES = 1
+    const val INPUT_MAX_LINES = 3
 
     val contentHorizontalPadding
         @Composable get() = EgoGraphThemeTokens.dimens.space16
@@ -58,7 +60,7 @@ internal object ChatComposerMetrics {
     val contentBottomPadding
         @Composable get() = EgoGraphThemeTokens.dimens.space8
 
-    val textLaneMinHeight = 50.dp
+    val textLaneMinHeight = 30.dp
 
     val modelSelectorSpacing
         @Composable get() = EgoGraphThemeTokens.dimens.space8
@@ -75,15 +77,19 @@ internal fun ChatComposerField(
     isLoadingModels: Boolean,
     modelsError: String?,
     onModelSelected: (String) -> Unit,
+    onSendMessage: () -> Unit,
+    onVoiceInputClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val isFocused = interactionSource.collectIsFocusedAsState().value
     val dimens = EgoGraphThemeTokens.dimens
     val shapes = EgoGraphThemeTokens.shapes
 
     val colors = OutlinedTextFieldDefaults.colors()
     val shape: Shape = shapes.radiusXl
+    val accentBlue = EgoGraphThemeTokens.accentBlue
+    val inputContainerColor = MaterialTheme.colorScheme.surfaceVariant
+    val inputBorderColor = MaterialTheme.colorScheme.outline
 
     BasicTextField(
         value = text,
@@ -99,6 +105,7 @@ internal fun ChatComposerField(
         minLines = ChatComposerMetrics.INPUT_MIN_LINES,
         maxLines = ChatComposerMetrics.INPUT_MAX_LINES,
         interactionSource = interactionSource,
+        cursorBrush = SolidColor(accentBlue),
         decorationBox = { innerTextField ->
             Surface(
                 modifier =
@@ -107,12 +114,12 @@ internal fun ChatComposerField(
                         .clip(shape)
                         .border(
                             width = dimens.borderWidthThin,
-                            color = MaterialTheme.colorScheme.outline,
+                            color = inputBorderColor,
                             shape = shape,
                         ),
                 shape = shape,
-                color = colors.unfocusedContainerColor,
-                contentColor = colors.unfocusedTextColor,
+                color = inputContainerColor,
+                contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
                 Column(
                     modifier =
@@ -137,14 +144,30 @@ internal fun ChatComposerField(
                         innerTextField()
                     }
                     Spacer(modifier = Modifier.height(ChatComposerMetrics.modelSelectorSpacing))
-                    ChatModelSelector(
-                        models = models,
-                        selectedModelId = selectedModelId,
-                        isLoading = isLoadingModels,
-                        error = modelsError,
-                        onModelSelected = onModelSelected,
-                        modifier = Modifier.align(Alignment.Start),
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ChatModelSelector(
+                            models = models,
+                            selectedModelId = selectedModelId,
+                            isLoading = isLoadingModels,
+                            error = modelsError,
+                            onModelSelected = onModelSelected,
+                            modifier = Modifier.weight(1f),
+                        )
+
+                        onVoiceInputClick?.let { voiceInputClick ->
+                            Spacer(modifier = Modifier.width(ChatComposerMetrics.actionButtonsSpacing))
+                            MicButton(onClick = voiceInputClick)
+                        }
+
+                        Spacer(modifier = Modifier.width(ChatComposerMetrics.actionButtonsSpacing))
+                        SendButton(
+                            enabled = text.isNotBlank() && !isLoading,
+                            onClick = onSendMessage,
+                        )
+                    }
                 }
             }
         },
@@ -172,6 +195,8 @@ internal fun SendButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
+    val accentBlue = EgoGraphThemeTokens.accentBlue
+
     IconButton(
         onClick = onClick,
         enabled = enabled,
@@ -180,6 +205,7 @@ internal fun SendButton(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Send,
             contentDescription = "Send",
+            tint = if (enabled) accentBlue else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

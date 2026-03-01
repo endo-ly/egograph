@@ -1,5 +1,6 @@
 package dev.egograph.shared.core.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -41,6 +42,7 @@ data class EgoGraphDimens(
     val minTapTargetWidth: Dp = 72.dp,
     val terminalHeaderHeight: Dp = 96.dp,
     val chatComposerMinHeight: Dp = 100.dp,
+    val modelSelectorMaxWidth: Dp = 140.dp,
 )
 
 @Immutable
@@ -56,6 +58,9 @@ data class EgoGraphShapes(
 @Immutable
 data class EgoGraphExtendedColors(
     val statusConnected: Color = Color(0xFF4CAF50),
+    // 青系アクセントカラー
+    val accentBlueLight: Color = Color(0xFF87CEEB),
+    val accentBlueDark: Color = Color(0xFFADD8E6),
 )
 
 internal val LocalEgoGraphDimens = staticCompositionLocalOf { EgoGraphDimens() }
@@ -77,4 +82,9 @@ object EgoGraphThemeTokens {
         @Composable
         @ReadOnlyComposable
         get() = LocalEgoGraphExtendedColors.current
+
+    val accentBlue: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = if (isSystemInDarkTheme()) extendedColors.accentBlueDark else extendedColors.accentBlueLight
 }
