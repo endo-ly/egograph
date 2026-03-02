@@ -82,4 +82,4 @@ jobs:
         with:
           model: zai-coding-plan/glm-4.7
           share: false
-          prompt: "`/pr-review-back-workflow` Skillに従って作業を進めてください"
+          prompt: "pr-review-back-workflow Skillをロードし、指示に従って作業を進めてください。ここはGithub Action環境のため、ユーザーと対話することはできません"
