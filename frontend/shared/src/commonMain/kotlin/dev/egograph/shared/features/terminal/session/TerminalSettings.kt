@@ -45,8 +45,8 @@ fun rememberTerminalSettings(
         val apiKey =
             preferences
                 .getString(
-                    PlatformPrefsKeys.KEY_GATEWAY_API_KEY,
-                    PlatformPrefsDefaults.DEFAULT_GATEWAY_API_KEY,
+                    PlatformPrefsKeys.KEY_API_KEY,
+                    PlatformPrefsDefaults.DEFAULT_API_KEY,
                 ).trim()
 
         if (gatewayUrl.isBlank()) {
@@ -59,7 +59,7 @@ fun rememberTerminalSettings(
             TerminalSettings(
                 wsUrl = null,
                 apiKey = null,
-                error = "Gateway API key is not configured",
+                error = "API key is not configured",
             )
         } else {
             val normalizedUrl =

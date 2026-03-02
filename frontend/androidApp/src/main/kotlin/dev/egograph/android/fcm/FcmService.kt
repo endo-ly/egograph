@@ -6,6 +6,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dev.egograph.android.notifications.NotificationChannelManager
 import dev.egograph.android.notifications.NotificationDisplayer
+import dev.egograph.shared.core.platform.PlatformPrefsKeys
 
 /** Firebase Cloud Messaging サービス。
 
@@ -16,7 +17,6 @@ class FcmService : FirebaseMessagingService() {
         private const val TAG = "FcmService"
         private const val PREFS_NAME = "egograph_prefs"
         private const val KEY_GATEWAY_API_URL = "gateway_api_url"
-        private const val KEY_GATEWAY_API_KEY = "gateway_api_key"
         private const val TOKEN_PREVIEW_LENGTH = 10
     }
 
@@ -69,7 +69,7 @@ class FcmService : FirebaseMessagingService() {
         val gatewayUrl = prefs.getString(KEY_GATEWAY_API_URL, "")?.trim().orEmpty()
         val apiKey =
             prefs
-                .getString(KEY_GATEWAY_API_KEY, "")
+                .getString(PlatformPrefsKeys.KEY_API_KEY, "")
                 ?.trim()
                 .orEmpty()
 

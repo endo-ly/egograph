@@ -46,7 +46,7 @@ class TerminalModuleTest : KoinTest {
             module {
                 val mockPreferences = mockk<PlatformPreferences>()
                 every { mockPreferences.getString(PlatformPrefsKeys.KEY_GATEWAY_API_URL, any()) } returns "http://localhost:8001"
-                every { mockPreferences.getString(PlatformPrefsKeys.KEY_GATEWAY_API_KEY, any()) } returns "test-api-key"
+                every { mockPreferences.getString(PlatformPrefsKeys.KEY_API_KEY, any()) } returns "test-api-key"
 
                 single { HttpClient() }
                 single { mockPreferences }

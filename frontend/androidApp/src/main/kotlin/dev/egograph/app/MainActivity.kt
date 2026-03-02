@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
 
         val prefs = getSharedPreferences("egograph_prefs", MODE_PRIVATE)
         val gatewayUrl = prefs.getString(PlatformPrefsKeys.KEY_GATEWAY_API_URL, "")?.trim().orEmpty()
-        val apiKey = prefs.getString(PlatformPrefsKeys.KEY_GATEWAY_API_KEY, "")?.trim().orEmpty()
+        val apiKey = prefs.getString(PlatformPrefsKeys.KEY_API_KEY, "")?.trim().orEmpty()
 
         if (gatewayUrl.isBlank() || apiKey.isBlank()) {
             return null

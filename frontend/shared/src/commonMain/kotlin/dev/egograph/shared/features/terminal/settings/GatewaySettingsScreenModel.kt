@@ -22,10 +22,10 @@ import kotlinx.coroutines.sync.Mutex
 /**
  * Gateway設定画面のScreenModel
  *
- * Gateway接続情報（URL、API Key）の管理・保存・検証を行う。
+ * Gateway接続情報（URL）の管理・保存・検証を行う。
  * 入力値の検証、正規化、永続化を担当し、UI StateとOne-shotイベントを管理する。
  *
- * @property preferences プラットフォーム設定ストア（URL/Key永続化用）
+ * @property preferences プラットフォーム設定ストア（URL永続化用）
  */
 
 class GatewaySettingsScreenModel(
@@ -48,11 +48,6 @@ class GatewaySettingsScreenModel(
                             PlatformPrefsKeys.KEY_GATEWAY_API_URL,
                             PlatformPrefsDefaults.DEFAULT_GATEWAY_API_URL,
                         ).ifBlank { getDefaultGatewayBaseUrl() },
-                inputApiKey =
-                    preferences.getString(
-                        PlatformPrefsKeys.KEY_GATEWAY_API_KEY,
-                        PlatformPrefsDefaults.DEFAULT_GATEWAY_API_KEY,
-                    ),
             )
         }
     }
@@ -61,21 +56,15 @@ class GatewaySettingsScreenModel(
         _state.update { it.copy(inputGatewayUrl = value) }
     }
 
-    fun onApiKeyChange(value: String) {
-        _state.update { it.copy(inputApiKey = value) }
-    }
-
     fun saveSettings() {
         val current = _state.value
         if (current.isSaving) {
             return
         }
 
-        // バリデーション: URLとAPI Keyの両方をチェック
         val validationError =
             when {
                 !isValidUrl(current.inputGatewayUrl) -> "有効なGateway URLを入力してください"
-                current.inputApiKey.isBlank() -> "API Keyを入力してください"
                 else -> null
             }
 
@@ -93,15 +82,12 @@ class GatewaySettingsScreenModel(
             _state.update { it.copy(isSaving = true) }
             try {
                 val normalizedGatewayUrl = normalizeBaseUrl(current.inputGatewayUrl)
-                val trimmedApiKey = current.inputApiKey.trim()
 
                 preferences.putString(PlatformPrefsKeys.KEY_GATEWAY_API_URL, normalizedGatewayUrl)
-                preferences.putString(PlatformPrefsKeys.KEY_GATEWAY_API_KEY, trimmedApiKey)
 
                 _state.update {
                     it.copy(
                         inputGatewayUrl = normalizedGatewayUrl,
-                        inputApiKey = trimmedApiKey,
                     )
                 }
                 _effect.send(GatewaySettingsEffect.ShowMessage("Gateway settings saved"))

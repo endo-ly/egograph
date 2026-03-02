@@ -27,7 +27,7 @@ val terminalModule =
 
         single<String>(qualifier = named("GatewayApiKey")) {
             val preferences = getOrNull<PlatformPreferences>()
-            preferences?.getString(PlatformPrefsKeys.KEY_GATEWAY_API_KEY, PlatformPrefsDefaults.DEFAULT_GATEWAY_API_KEY) ?: ""
+            preferences?.getString(PlatformPrefsKeys.KEY_API_KEY, PlatformPrefsDefaults.DEFAULT_API_KEY) ?: ""
         }
 
         // === RepositoryClient (Gateway API) ===
