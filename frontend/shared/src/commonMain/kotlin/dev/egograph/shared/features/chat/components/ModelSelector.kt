@@ -64,8 +64,8 @@ fun ModelSelector(
 
     val isEnabled = !isLoading && error == null && models.isNotEmpty()
 
-    val selectorBg = MaterialTheme.colorScheme.surfaceVariant
-    val selectorFg = MaterialTheme.colorScheme.onSurfaceVariant
+    val selectorBg = MaterialTheme.colorScheme.surface
+    val selectorFg = MaterialTheme.colorScheme.onSurface
 
     Box(
         modifier =

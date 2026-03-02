@@ -170,12 +170,6 @@ internal fun ChatComposerField(
                                 modifier = Modifier.weight(1f),
                             )
 
-                            Spacer(modifier = Modifier.width(ChatComposerMetrics.actionButtonsSpacing))
-                            SendButton(
-                                enabled = text.isNotBlank() && !isLoading,
-                                onClick = onSendMessage,
-                            )
-
                             onVoiceInputClick?.let { voiceInputClick ->
                                 Spacer(modifier = Modifier.width(ChatComposerMetrics.actionButtonsSpacing))
                                 VoiceInputToggleButton(
@@ -184,6 +178,12 @@ internal fun ChatComposerField(
                                     testTag = "mic_button",
                                 )
                             }
+
+                            Spacer(modifier = Modifier.width(ChatComposerMetrics.actionButtonsSpacing))
+                            SendButton(
+                                enabled = text.isNotBlank() && !isLoading,
+                                onClick = onSendMessage,
+                            )
                         }
                     }
                 }
