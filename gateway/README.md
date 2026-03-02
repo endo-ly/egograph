@@ -76,6 +76,12 @@ tmux セッション一覧を取得
 
 認証: X-API-Key 必須
 
+### Terminal WebSocket トークン運用上の注意
+
+- `terminal_ws_token_store` は in-memory 実装です。
+- `POST /api/v1/terminal/sessions/{session_id}/ws-token` で発行したトークンは、同じプロセスでの `terminal_ws_token_store.consume` でのみ検証できます。
+- マルチプロセス/マルチPod構成では、sticky-session で同一インスタンスへ到達させるか、共有ストア実装（例: Redis）に置き換えてください。
+
 ## プロジェクト構成
 
 ```

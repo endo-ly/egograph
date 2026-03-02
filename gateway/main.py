@@ -67,7 +67,7 @@ def create_app() -> Starlette:
             allow_origins=cors_origins,
             allow_methods=["*"],
             allow_headers=["*"],
-        )
+        ),
     ]
 
     # データベース初期化

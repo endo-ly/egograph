@@ -320,6 +320,21 @@ def _validate_websocket_origin_header(websocket: WebSocket) -> bool:
     if not is_tailscale_hostname(host):
         logger.warning("WebSocket rejected: non-tailscale Origin (%s)", origin)
         return False
+
+    host_header = websocket.headers.get("host")
+    if not host_header:
+        logger.warning("WebSocket rejected: missing Host header")
+        return False
+
+    request_host = _extract_host_without_port(host_header)
+    if host != request_host:
+        logger.warning(
+            "WebSocket rejected: Origin host does not match Host (%s vs %s)",
+            host,
+            request_host,
+        )
+        return False
+
     return True
 
 

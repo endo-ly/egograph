@@ -108,6 +108,7 @@ class TestWebSocketAuthentication:
             mock_websocket.accept.assert_called_once()
             mock_store.consume.assert_called_once_with(valid_token)
             mock_handler.handle.assert_called_once()
+
     @pytest.mark.asyncio
     async def test_websocket_rejects_invalid_token(
         self,
@@ -126,9 +127,7 @@ class TestWebSocketAuthentication:
         mock_websocket.accept = AsyncMock()
         mock_websocket.close = AsyncMock()
 
-        with patch(
-            "gateway.api.terminal.terminal_ws_token_store"
-        ) as mock_store:
+        with patch("gateway.api.terminal.terminal_ws_token_store") as mock_store:
             mock_store.consume = AsyncMock(return_value=(False, None))
 
             # Act
@@ -139,6 +138,7 @@ class TestWebSocketAuthentication:
             mock_websocket.close.assert_called_once_with(
                 code=1008, reason="Unauthorized"
             )
+
     @pytest.mark.asyncio
     async def test_websocket_rejects_missing_token(
         self,
@@ -159,9 +159,7 @@ class TestWebSocketAuthentication:
 
         # Assert
         mock_websocket.accept.assert_called_once()
-        mock_websocket.close.assert_called_once_with(
-            code=1008, reason="Unauthorized"
-        )
+        mock_websocket.close.assert_called_once_with(code=1008, reason="Unauthorized")
 
     @pytest.mark.asyncio
     async def test_websocket_rejects_token_replay(
@@ -171,29 +169,56 @@ class TestWebSocketAuthentication:
         valid_ws_headers,
     ):
         """トークンの再利用（リプレイ）が拒否されることを確認する。"""
-        # Arrange
-        mock_websocket = MagicMock()
-        mock_websocket.query_params = {"session_id": valid_session_id}
-        mock_websocket.headers = valid_ws_headers
-        mock_websocket.accept = AsyncMock()
-        mock_websocket.receive_text = AsyncMock(
+        first_websocket = MagicMock()
+        first_websocket.query_params = {"session_id": valid_session_id}
+        first_websocket.headers = valid_ws_headers
+        first_websocket.accept = AsyncMock()
+        first_websocket.receive_text = AsyncMock(
             return_value=f'{{"type":"auth","ws_token":"{valid_token}"}}'
         )
-        mock_websocket.close = AsyncMock()
+        first_websocket.close = AsyncMock()
 
-        with patch(
-            "gateway.api.terminal.terminal_ws_token_store"
-        ) as mock_store:
-            # Second consume fails (token already used)
-            mock_store.consume = AsyncMock(return_value=(False, None))
+        replay_websocket = MagicMock()
+        replay_websocket.query_params = {"session_id": valid_session_id}
+        replay_websocket.headers = valid_ws_headers
+        replay_websocket.accept = AsyncMock()
+        replay_websocket.receive_text = AsyncMock(
+            return_value=f'{{"type":"auth","ws_token":"{valid_token}"}}'
+        )
+        replay_websocket.close = AsyncMock()
 
-            # Act
-            await terminal_websocket(mock_websocket)
+        with (
+            patch(
+                "gateway.api.terminal.terminal_ws_token_store",
+            ) as mock_store,
+            patch(
+                "gateway.api.terminal.anyio.to_thread.run_sync",
+                return_value=True,
+            ),
+            patch(
+                "gateway.api.terminal.TerminalWebSocketHandler"
+            ) as mock_handler_class,
+            patch("gateway.api.terminal.mark_session_connected"),
+            patch("gateway.api.terminal.mark_session_disconnected"),
+        ):
+            mock_store.consume = AsyncMock(
+                side_effect=[
+                    (True, valid_session_id),
+                    (False, None),
+                ]
+            )
+            mock_handler = MagicMock()
+            mock_handler.handle = AsyncMock()
+            mock_handler_class.return_value = mock_handler
 
-            # Assert
-            mock_websocket.accept.assert_called_once()
-            mock_websocket.close.assert_called_once_with(
-                code=1008, reason="Unauthorized"
+            await terminal_websocket(first_websocket)
+            await terminal_websocket(replay_websocket)
+
+            first_websocket.accept.assert_called_once()
+            replay_websocket.accept.assert_called_once()
+            replay_websocket.close.assert_called_once_with(
+                code=1008,
+                reason="Unauthorized",
             )
 
     @pytest.mark.asyncio
@@ -214,9 +239,7 @@ class TestWebSocketAuthentication:
         )
         mock_websocket.close = AsyncMock()
 
-        with patch(
-            "gateway.api.terminal.terminal_ws_token_store"
-        ) as mock_store:
+        with patch("gateway.api.terminal.terminal_ws_token_store") as mock_store:
             # Expired token returns False
             mock_store.consume = AsyncMock(return_value=(False, None))
 
@@ -247,9 +270,7 @@ class TestWebSocketAuthentication:
         )
         mock_websocket.close = AsyncMock()
 
-        with patch(
-            "gateway.api.terminal.terminal_ws_token_store"
-        ) as mock_store:
+        with patch("gateway.api.terminal.terminal_ws_token_store") as mock_store:
             # Token is valid but for different session
             mock_store.consume = AsyncMock(return_value=(True, "agent-9999"))
 
@@ -261,6 +282,8 @@ class TestWebSocketAuthentication:
             mock_websocket.close.assert_called_once_with(
                 code=1008, reason="Unauthorized"
             )
+
+
 # ============================================================================
 # セッションIDバリデーションテスト
 # ============================================================================
@@ -338,6 +361,33 @@ class TestSessionIdValidation:
         mock_websocket.headers = {
             "host": "dev-server.tail905a15.ts.net",
             "origin": "https://example.com",
+        }
+        mock_websocket.accept = AsyncMock()
+        mock_websocket.receive_text = AsyncMock(
+            return_value=f'{{"type":"auth","ws_token":"{valid_token}"}}'
+        )
+        mock_websocket.close = AsyncMock()
+
+        await terminal_websocket(mock_websocket)
+
+        mock_websocket.accept.assert_not_called()
+        mock_websocket.close.assert_called_once_with(
+            code=1008,
+            reason="Invalid origin",
+        )
+
+    @pytest.mark.asyncio
+    async def test_websocket_rejects_origin_host_mismatch(
+        self,
+        valid_session_id,
+        valid_token,
+    ):
+        """Origin の host と Host ヘッダーが不一致な場合に拒否されることを確認する。"""
+        mock_websocket = MagicMock()
+        mock_websocket.query_params = {"session_id": valid_session_id}
+        mock_websocket.headers = {
+            "host": "dev-server.tail905a15.ts.net",
+            "origin": "https://other-server.tail905a15.ts.net",
         }
         mock_websocket.accept = AsyncMock()
         mock_websocket.receive_text = AsyncMock(

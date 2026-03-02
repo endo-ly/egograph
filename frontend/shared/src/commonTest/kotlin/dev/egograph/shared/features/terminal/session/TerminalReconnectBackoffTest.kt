@@ -118,6 +118,18 @@ class TerminalReconnectBackoffTest {
     }
 
     @Test
+    fun `calculateDelay rejects negative attempt`() {
+        val backoff = createTerminalReconnectBackoffForTesting(seed = 0)
+
+        val exception =
+            assertThrows<IllegalArgumentException> {
+                backoff.calculateDelay(-1)
+            }
+
+        assertTrue(exception.message!!.contains("attempt must be >= 0"))
+    }
+
+    @Test
     fun `createTerminalReconnectBackoffForTesting creates deterministic instance`() {
         val backoff1 = createTerminalReconnectBackoffForTesting(seed = 42)
         val backoff2 = createTerminalReconnectBackoffForTesting(seed = 42)

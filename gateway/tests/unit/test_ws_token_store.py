@@ -260,8 +260,8 @@ class TestTerminalWSTokenStore:
         store._now_fn = lambda: datetime(2025, 1, 1, 12, 0, 0)
         token2 = await store.issue("session-456")
 
-        # ちょうど有効期限切れ（301秒後）
-        store._now_fn = lambda: datetime(2025, 1, 1, 12, 5, 1)
+        # ちょうど有効期限切れ（300秒後）
+        store._now_fn = lambda: datetime(2025, 1, 1, 12, 5, 0)
         success2, _ = await store.consume(token2)
         assert success2 is False
 

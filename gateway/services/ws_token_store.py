@@ -87,10 +87,10 @@ class TerminalWSTokenStore:
         )
 
         token = secrets.token_urlsafe(32)
-        now = self._now_fn()
-        expires_at = now + timedelta(seconds=effective_ttl_seconds)
 
         async with self._lock:
+            now = self._now_fn()
+            expires_at = now + timedelta(seconds=effective_ttl_seconds)
             # 同一セッションの以前のトークンを無効化
             if session_id in self._session_tokens:
                 old_token = self._session_tokens[session_id]
@@ -143,7 +143,7 @@ class TerminalWSTokenStore:
                 return False, None
 
             # 有効期限チェック
-            if self._now_fn() > ws_token.expires_at:
+            if self._now_fn() >= ws_token.expires_at:
                 # 期限切れトークンを削除
                 del self._tokens[token]
                 if ws_token.session_id in self._session_tokens:
@@ -171,7 +171,7 @@ class TerminalWSTokenStore:
         expired_tokens = [
             token
             for token, ws_token in self._tokens.items()
-            if now > ws_token.expires_at
+            if now >= ws_token.expires_at
         ]
 
         for token in expired_tokens:

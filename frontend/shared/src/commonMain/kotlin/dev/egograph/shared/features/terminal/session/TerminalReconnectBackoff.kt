@@ -61,6 +61,7 @@ data class TerminalReconnectBackoff(
     }
 
     private fun Double.pow(exponent: Int): Double {
+        require(exponent >= 0) { "attempt must be >= 0, was $exponent" }
         var result = 1.0
         repeat(exponent) {
             result *= this

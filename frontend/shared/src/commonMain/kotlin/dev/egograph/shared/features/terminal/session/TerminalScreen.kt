@@ -40,6 +40,7 @@ import dev.egograph.shared.features.terminal.session.components.TerminalView
 import dev.egograph.shared.features.terminal.session.components.rememberTerminalWebView
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -139,39 +140,40 @@ private fun TerminalContent(
         }
     }
 
-    LaunchedEffect(connectionState, reconnectAttempts, terminalSettings.wsUrl, agentId) {
+    LaunchedEffect(connectionState, terminalSettings.wsUrl, agentId) {
         if (connectionState) {
             reconnectJob?.cancel()
+            reconnectJob = null
             hasConnectedOnce = true
             isConnecting = false
             terminalError = null
             reconnectAttempts = 0
-        } else {
-            if (
-                hasConnectedOnce &&
-                !terminalSettings.wsUrl.isNullOrBlank() &&
-                reconnectJob?.isActive != true
-            ) {
-                reconnectJob?.cancel()
-                reconnectJob =
-                    coroutineScope.launch {
-                        val attempt = reconnectAttempts
-                        val delayMs = backoff.calculateDelay(attempt)
+        } else if (
+            hasConnectedOnce &&
+            !terminalSettings.wsUrl.isNullOrBlank() &&
+            reconnectJob?.isActive != true
+        ) {
+            reconnectJob =
+                coroutineScope.launch {
+                    while (isActive && !connectionState) {
+                        val delayMs = backoff.calculateDelay(reconnectAttempts)
                         delay(delayMs)
-                        if (!connectionState) {
-                            isConnecting = true
-                            val result = terminalRepository.issueWsToken(agentId)
-                            result
-                                .onSuccess { wsToken ->
-                                    webView.connect(terminalSettings.wsUrl, wsToken.wsToken)
-                                }.onFailure {
-                                    terminalError = "Reconnection failed"
-                                    isConnecting = false
-                                    reconnectAttempts = attempt + 1
-                                }
+
+                        if (!isActive || connectionState) {
+                            break
                         }
+
+                        reconnectAttempts++
+                        isConnecting = true
+                        val result = terminalRepository.issueWsToken(agentId)
+                        result
+                            .onSuccess { wsToken ->
+                                webView.connect(terminalSettings.wsUrl, wsToken.wsToken)
+                            }.onFailure {
+                                isConnecting = false
+                            }
                     }
-            }
+                }
         }
     }
 
