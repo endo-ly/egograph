@@ -34,7 +34,7 @@ fun VoiceInputToggleButton(
         if (isActive) {
             MaterialTheme.colorScheme.errorContainer
         } else {
-            MaterialTheme.colorScheme.surfaceVariant
+            MaterialTheme.colorScheme.surface
         }
     val contentColor =
         if (isActive) {

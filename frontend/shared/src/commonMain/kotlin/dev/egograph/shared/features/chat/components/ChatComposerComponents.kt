@@ -100,7 +100,7 @@ internal fun ChatComposerField(
     val colors = OutlinedTextFieldDefaults.colors()
     val shape: Shape = shapes.radiusXl
     val accentBlue = EgoGraphThemeTokens.accentBlue
-    val inputContainerColor = MaterialTheme.colorScheme.surfaceVariant
+    val inputContainerColor = MaterialTheme.colorScheme.surface
     val inputBorderColor = MaterialTheme.colorScheme.outline
 
     Column(modifier = modifier) {
