@@ -48,7 +48,6 @@ class AgentListScreen(
 
         SessionList(
             sessions = state.sessions,
-            selectedSessionId = state.selectedSession?.sessionId,
             isLoading = state.isLoadingSessions,
             error = state.sessionsError,
             onSessionClick = { sessionId ->

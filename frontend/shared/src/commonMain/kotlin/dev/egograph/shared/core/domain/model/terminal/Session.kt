@@ -36,12 +36,4 @@ enum class SessionStatus {
     /** 接続中 */
     @SerialName("connected")
     CONNECTED,
-
-    /** 切断中 */
-    @SerialName("disconnected")
-    DISCONNECTED,
-
-    /** エラー状態 */
-    @SerialName("failed")
-    FAILED,
 }
