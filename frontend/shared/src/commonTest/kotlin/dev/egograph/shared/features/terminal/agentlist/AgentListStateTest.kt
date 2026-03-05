@@ -2,7 +2,6 @@ package dev.egograph.shared.features.terminal.agentlist
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 class AgentListStateTest {
     @Test
@@ -10,7 +9,6 @@ class AgentListStateTest {
         val state = AgentListState()
 
         assertEquals(0, state.sessions.size)
-        assertNull(state.selectedSession)
     }
 
     @Test

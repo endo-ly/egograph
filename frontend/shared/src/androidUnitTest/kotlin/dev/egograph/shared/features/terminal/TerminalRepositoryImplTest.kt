@@ -73,7 +73,7 @@ class TerminalRepositoryImplTest {
                         {
                             "session_id": "session-2",
                             "name": "Test Session 2",
-                            "status": "disconnected",
+                            "status": "connected",
                             "last_activity": "2025-01-01T01:00:00Z",
                             "created_at": "2025-01-01T00:00:00Z"
                         }
@@ -116,7 +116,7 @@ class TerminalRepositoryImplTest {
             assertEquals(SessionStatus.CONNECTED, actual[0].status)
             assertEquals("session-2", actual[1].sessionId)
             assertEquals("Test Session 2", actual[1].name)
-            assertEquals(SessionStatus.DISCONNECTED, actual[1].status)
+            assertEquals(SessionStatus.CONNECTED, actual[1].status)
         }
 
     @Test

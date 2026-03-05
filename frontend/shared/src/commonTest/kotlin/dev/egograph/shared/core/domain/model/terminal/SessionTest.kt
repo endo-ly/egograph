@@ -56,7 +56,7 @@ class SessionTest {
             {
                 "session_id": "sess-def456",
                 "name": "Test Session",
-                "status": "disconnected",
+                "status": "connected",
                 "last_activity": "2026-02-10T13:00:00Z",
                 "created_at": "2026-02-10T11:00:00Z",
                 "unknown_field": null,
@@ -71,7 +71,7 @@ class SessionTest {
         assertNotNull(session)
         assertEquals("sess-def456", session.sessionId)
         assertEquals("Test Session", session.name)
-        assertEquals(SessionStatus.DISCONNECTED, session.status)
+        assertEquals(SessionStatus.CONNECTED, session.status)
         assertEquals("2026-02-10T13:00:00Z", session.lastActivity)
         assertEquals("2026-02-10T11:00:00Z", session.createdAt)
     }
@@ -114,8 +114,8 @@ class SessionTest {
     }
 
     @Test
-    fun `serialize and serialize - Session with all status types`() {
-        // Arrange: 全ステータスタイプのセッションを準備
+    fun `serialize and serialize - Session with connected status`() {
+        // Arrange: connectedステータスのセッションを準備
         val sessions =
             listOf(
                 Session(
@@ -125,23 +125,9 @@ class SessionTest {
                     lastActivity = "2026-02-10T12:00:00Z",
                     createdAt = "2026-02-10T10:00:00Z",
                 ),
-                Session(
-                    sessionId = "sess-2",
-                    name = "Disconnected Session",
-                    status = SessionStatus.DISCONNECTED,
-                    lastActivity = "2026-02-10T13:00:00Z",
-                    createdAt = "2026-02-10T11:00:00Z",
-                ),
-                Session(
-                    sessionId = "sess-3",
-                    name = "Failed Session",
-                    status = SessionStatus.FAILED,
-                    lastActivity = "2026-02-10T14:00:00Z",
-                    createdAt = "2026-02-10T12:00:00Z",
-                ),
             )
 
-        // Act & Assert: 各ステータスが正しくシリアライズ・デシリアライズされることを検証
+        // Act & Assert: ステータスが正しくシリアライズ・デシリアライズされることを検証
         sessions.forEach { original ->
             val jsonString = json.encodeToString(original)
             val decoded = json.decodeFromString<Session>(jsonString)
