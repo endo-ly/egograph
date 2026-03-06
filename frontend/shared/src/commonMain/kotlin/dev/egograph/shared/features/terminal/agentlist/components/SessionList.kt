@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import dev.egograph.shared.core.domain.model.terminal.Session
-import dev.egograph.shared.core.domain.model.terminal.SessionStatus
 import dev.egograph.shared.core.ui.common.ListStateContent
 import dev.egograph.shared.core.ui.theme.EgoGraphThemeTokens
 import dev.egograph.shared.core.ui.theme.monospaceBodyMedium
@@ -41,7 +40,6 @@ import dev.egograph.shared.core.ui.theme.monospaceLabelSmall
  * ターミナルセッション一覧コンポーネント
  *
  * @param sessions セッション一覧
- * @param selectedSessionId 選択中のセッションID
  * @param isLoading 読み込み中フラグ
  * @param error エラーメッセージ
  * @param onSessionClick セッション選択コールバック
@@ -52,7 +50,6 @@ import dev.egograph.shared.core.ui.theme.monospaceLabelSmall
 @Composable
 fun SessionList(
     sessions: List<Session>,
-    selectedSessionId: String?,
     isLoading: Boolean,
     error: String?,
     onSessionClick: (String) -> Unit,
@@ -63,7 +60,7 @@ fun SessionList(
     val dimens = EgoGraphThemeTokens.dimens
     val shapes = EgoGraphThemeTokens.shapes
     val extendedColors = EgoGraphThemeTokens.extendedColors
-    val activeSessionCount = sessions.count { it.status == SessionStatus.CONNECTED }
+    val sessionCount = sessions.size
 
     Column(
         modifier =
@@ -87,7 +84,7 @@ fun SessionList(
                         Modifier
                             .size(dimens.indicatorSizeSmall)
                             .background(
-                                color = if (activeSessionCount > 0) extendedColors.success else MaterialTheme.colorScheme.outline,
+                                color = if (sessionCount > 0) extendedColors.success else MaterialTheme.colorScheme.outline,
                                 shape = shapes.statusCircle,
                             ),
                 )
@@ -145,10 +142,10 @@ fun SessionList(
             Spacer(modifier = Modifier.height(dimens.space8))
 
             Text(
-                text = "$activeSessionCount ACTIVE",
+                text = "$sessionCount SESSIONS",
                 style =
                     MaterialTheme.typography.monospaceLabelSmall.copy(fontWeight = FontWeight.Medium),
-                color = if (activeSessionCount > 0) extendedColors.success else MaterialTheme.colorScheme.outline,
+                color = if (sessionCount > 0) extendedColors.success else MaterialTheme.colorScheme.outline,
                 modifier = Modifier.align(Alignment.End),
             )
         }
@@ -174,7 +171,6 @@ fun SessionList(
             content = { items, containerModifier ->
                 SessionListContent(
                     sessions = items,
-                    selectedSessionId = selectedSessionId,
                     onSessionClick = onSessionClick,
                     modifier = containerModifier,
                 )
@@ -186,7 +182,6 @@ fun SessionList(
 @Composable
 private fun SessionListContent(
     sessions: List<Session>,
-    selectedSessionId: String?,
     onSessionClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -204,7 +199,6 @@ private fun SessionListContent(
         ) { session ->
             SessionListItem(
                 session = session,
-                isActive = session.sessionId == selectedSessionId,
                 onClick = { onSessionClick(session.sessionId) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = dimens.space16),
             )

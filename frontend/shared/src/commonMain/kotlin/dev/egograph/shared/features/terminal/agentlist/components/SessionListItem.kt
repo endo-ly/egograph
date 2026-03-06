@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import dev.egograph.shared.core.domain.model.terminal.Session
-import dev.egograph.shared.core.domain.model.terminal.SessionStatus
 import dev.egograph.shared.core.ui.common.testTagResourceId
 import dev.egograph.shared.core.ui.common.toCompactIsoDateTime
 import dev.egograph.shared.core.ui.theme.EgoGraphThemeTokens
@@ -34,14 +33,12 @@ import dev.egograph.shared.core.ui.theme.monospaceLabelSmall
  * セッションリストアイテムコンポーネント
  *
  * @param session セッション情報
- * @param isActive アクティブフラグ
  * @param onClick クリックコールバック
  * @param modifier Modifier
  */
 @Composable
 fun SessionListItem(
     session: Session,
-    isActive: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -53,12 +50,7 @@ fun SessionListItem(
     val contentColor = MaterialTheme.colorScheme.onSurface
     val borderColor = MaterialTheme.colorScheme.outlineVariant
 
-    val statusColor =
-        when (session.status) {
-            SessionStatus.CONNECTED -> extendedColors.success
-            SessionStatus.DISCONNECTED -> MaterialTheme.colorScheme.outline
-            SessionStatus.FAILED -> MaterialTheme.colorScheme.error
-        }
+    val statusColor = extendedColors.success
 
     Row(
         modifier =
@@ -103,9 +95,9 @@ fun SessionListItem(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "[${getStatusText(session.status)}]",
+                text = "[ONLINE]",
                 style = MaterialTheme.typography.monospaceLabelSmall,
-                color = if (session.status == SessionStatus.CONNECTED) extendedColors.success else contentColor.copy(alpha = 0.6f),
+                color = extendedColors.success,
             )
         }
 
@@ -116,11 +108,3 @@ fun SessionListItem(
         )
     }
 }
-
-@Composable
-private fun getStatusText(status: SessionStatus): String =
-    when (status) {
-        SessionStatus.CONNECTED -> "ONLINE"
-        SessionStatus.DISCONNECTED -> "STANDBY"
-        SessionStatus.FAILED -> "ERROR"
-    }
