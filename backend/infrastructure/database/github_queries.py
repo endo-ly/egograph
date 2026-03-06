@@ -387,15 +387,19 @@ def get_commits(
 def get_repositories(
     params: GitHubQueryParams,
     owner: str | None = None,
+    repo: str | None = None,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Repositoryマスターを取得します。
 
     Args:
         params: クエリパラメータ（コネクション、バケット、パス）
         owner: フィルタ対象のオーナー（オプション）
+        repo: フィルタ対象のリポジトリ（オプション）
+        limit: 取得件数上限（オプション）
 
     Returns:
-        Repositoryリスト（updated_at_utc DESC）
+        Repositoryリスト
         [
             {
                 "repo_id": int,
@@ -449,13 +453,24 @@ def get_repositories(
 
     query_params: list[Any] = [repos_path]
 
+    where_conditions: list[str] = []
     if owner:
-        query += " WHERE owner = ?"
+        where_conditions.append("owner = ?")
         query_params.append(owner)
+    if repo:
+        where_conditions.append("repo = ?")
+        query_params.append(repo)
+
+    if where_conditions:
+        query += " WHERE " + " AND ".join(where_conditions)
 
     query += " ORDER BY updated_at_utc DESC"
 
-    logger.debug("Executing get_repositories: owner=%s", owner)
+    if limit:
+        query += " LIMIT ?"
+        query_params.append(limit)
+
+    logger.debug("Executing get_repositories: owner=%s, repo=%s, limit=%s", owner, repo, limit)
 
     return execute_query(params.conn, query, query_params)
 

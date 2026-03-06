@@ -264,16 +264,16 @@ class GetRepositoriesTool(ToolBase):
         Args:
             owner: フィルタ対象のオーナー（オプション）
             repo: フィルタ対象のリポジトリ（オプション）
+            limit: 取得するリポジトリ数
 
         Returns:
             Repositoryリスト
         """
         logger.info("Executing get_repositories: owner=%s, repo=%s, limit=%s", owner, repo, limit)
 
-        # データ取得は repository に委譲
         validated_limit = validate_limit(limit, max_value=MAX_LIMIT)
-        result = self.repository.get_repositories(owner=owner)
-        return result[:validated_limit]
+        result = self.repository.get_repositories(owner=owner, repo=repo, limit=validated_limit)
+        return result
 
 
 class GetActivityStatsTool(ToolBase):

@@ -128,11 +128,18 @@ class GitHubRepository:
             )
             return result
 
-    def get_repositories(self, owner: str | None = None) -> list[dict[str, Any]]:
+    def get_repositories(
+        self,
+        owner: str | None = None,
+        repo: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Repositoryマスターを取得します。
 
         Args:
             owner: フィルタ対象のオーナー（オプション）
+            repo: フィルタ対象のリポジトリ（オプション）
+            limit: 取得件数上限（オプション）
 
         Returns:
             Repositoryリスト（updated_at_utc DESC）
@@ -149,10 +156,12 @@ class GitHubRepository:
                 start_date=date.min,
                 end_date=date.max,
             )
-            result = get_repositories(params, owner=owner)
+            result = get_repositories(params, owner=owner, repo=repo, limit=limit)
             logger.info(
-                "Retrieved repositories: owner=%s, count=%s",
+                "Retrieved repositories: owner=%s, repo=%s, limit=%s, count=%s",
                 owner,
+                repo,
+                limit,
                 len(result),
             )
             return result

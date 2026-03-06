@@ -18,7 +18,7 @@ class TestGitHubRepository:
         prs_parquet_path = github_with_sample_data.test_prs_parquet_path
 
         with patch(
-            "backend.infrastructure.database.DuckDBConnection"
+            "backend.infrastructure.repositories.github_repository.DuckDBConnection"
         ) as mock_conn_class:
             mock_conn = MagicMock()
             mock_conn.__enter__ = MagicMock(return_value=github_with_sample_data)
@@ -47,7 +47,7 @@ class TestGitHubRepository:
         prs_parquet_path = github_with_sample_data.test_prs_parquet_path
 
         with patch(
-            "backend.infrastructure.database.DuckDBConnection"
+            "backend.infrastructure.repositories.github_repository.DuckDBConnection"
         ) as mock_conn_class:
             mock_conn = MagicMock()
             mock_conn.__enter__ = MagicMock(return_value=github_with_sample_data)
@@ -70,7 +70,11 @@ class TestGitHubRepository:
                 )
 
         # Assert
-        assert len(result) >= 0
+        assert isinstance(result, list)
+        for item in result:
+            assert "pr_event_id" in item
+            if item.get("owner") == "test_owner":
+                assert item.get("repo") == "test_repo"
 
     def test_get_commits(self, github_with_sample_data):
         """Commitイベントを取得。"""
@@ -78,7 +82,7 @@ class TestGitHubRepository:
         commits_parquet_path = github_with_sample_data.test_commits_parquet_path
 
         with patch(
-            "backend.infrastructure.database.DuckDBConnection"
+            "backend.infrastructure.repositories.github_repository.DuckDBConnection"
         ) as mock_conn_class:
             mock_conn = MagicMock()
             mock_conn.__enter__ = MagicMock(return_value=github_with_sample_data)
@@ -107,7 +111,7 @@ class TestGitHubRepository:
         commits_parquet_path = github_with_sample_data.test_commits_parquet_path
 
         with patch(
-            "backend.infrastructure.database.DuckDBConnection"
+            "backend.infrastructure.repositories.github_repository.DuckDBConnection"
         ) as mock_conn_class:
             mock_conn = MagicMock()
             mock_conn.__enter__ = MagicMock(return_value=github_with_sample_data)
@@ -129,7 +133,11 @@ class TestGitHubRepository:
                 )
 
         # Assert
-        assert len(result) >= 0
+        assert isinstance(result, list)
+        for item in result:
+            assert "commit_event_id" in item
+            if item.get("owner") == "test_owner":
+                assert item.get("repo") == "test_repo"
 
     def test_get_repositories(self, github_with_sample_data):
         """Repositoryマスターを取得。"""
@@ -137,7 +145,7 @@ class TestGitHubRepository:
         repos_parquet_path = github_with_sample_data.test_repos_parquet_path
 
         with patch(
-            "backend.infrastructure.database.DuckDBConnection"
+            "backend.infrastructure.repositories.github_repository.DuckDBConnection"
         ) as mock_conn_class:
             mock_conn = MagicMock()
             mock_conn.__enter__ = MagicMock(return_value=github_with_sample_data)
@@ -168,7 +176,7 @@ class TestGitHubRepository:
         repos_parquet_path = github_with_sample_data.test_repos_parquet_path
 
         with patch(
-            "backend.infrastructure.database.DuckDBConnection"
+            "backend.infrastructure.repositories.github_repository.DuckDBConnection"
         ) as mock_conn_class:
             mock_conn = MagicMock()
             mock_conn.__enter__ = MagicMock(return_value=github_with_sample_data)
@@ -184,7 +192,13 @@ class TestGitHubRepository:
                 result = repo.get_repositories(owner="test_owner")
 
         # Assert
-        assert len(result) >= 0
+        assert isinstance(result, list)
+        for item in result:
+            assert "repo_id" in item
+            assert "owner" in item
+            assert "repo" in item
+            if result and result[0].get("owner") == "test_owner":
+                assert all(item.get("owner") == "test_owner" for item in result)
 
     def test_get_activity_stats(self, github_with_sample_data):
         """アクティビティ統計を取得。"""
@@ -193,7 +207,7 @@ class TestGitHubRepository:
         commits_parquet_path = github_with_sample_data.test_commits_parquet_path
 
         with patch(
-            "backend.infrastructure.database.DuckDBConnection"
+            "backend.infrastructure.repositories.github_repository.DuckDBConnection"
         ) as mock_conn_class:
             mock_conn = MagicMock()
             mock_conn.__enter__ = MagicMock(return_value=github_with_sample_data)
@@ -215,8 +229,8 @@ class TestGitHubRepository:
                     )
 
         # Assert
-        assert len(result) >= 0
-        if len(result) > 0:
+        assert isinstance(result, list)
+        if result:
             assert "period" in result[0]
             assert "prs_created" in result[0]
             assert "prs_merged" in result[0]
@@ -229,7 +243,7 @@ class TestGitHubRepository:
         commits_parquet_path = github_with_sample_data.test_commits_parquet_path
 
         with patch(
-            "backend.infrastructure.database.DuckDBConnection"
+            "backend.infrastructure.repositories.github_repository.DuckDBConnection"
         ) as mock_conn_class:
             mock_conn = MagicMock()
             mock_conn.__enter__ = MagicMock(return_value=github_with_sample_data)
@@ -251,8 +265,8 @@ class TestGitHubRepository:
                     )
 
         # Assert
-        assert len(result) >= 0
-        if len(result) > 0:
+        assert isinstance(result, list)
+        if result:
             assert "owner" in result[0]
             assert "repo" in result[0]
             assert "prs_total" in result[0]

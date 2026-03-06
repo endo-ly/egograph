@@ -44,7 +44,7 @@ router = APIRouter(prefix="/v1/data/github", tags=["data", "github"])
 
 
 @router.get("/pull-requests", response_model=list[PullRequestResponse])
-async def get_pull_requests_endpoint(
+def get_pull_requests_endpoint(
     start_date: date = Query(..., description="開始日（YYYY-MM-DD）"),
     end_date: date = Query(..., description="終了日（YYYY-MM-DD）"),
     owner: str | None = Query(None, description="フィルタ対象のオーナー"),
@@ -100,7 +100,7 @@ async def get_pull_requests_endpoint(
 
 
 @router.get("/commits", response_model=list[CommitResponse])
-async def get_commits_endpoint(
+def get_commits_endpoint(
     start_date: date = Query(..., description="開始日（YYYY-MM-DD）"),
     end_date: date = Query(..., description="終了日（YYYY-MM-DD）"),
     owner: str | None = Query(None, description="フィルタ対象のオーナー"),
@@ -153,8 +153,11 @@ async def get_commits_endpoint(
 
 
 @router.get("/repositories", response_model=list[RepositoryResponse])
-async def get_repositories_endpoint(
+def get_repositories_endpoint(
     owner: str | None = Query(None, description="フィルタ対象のオーナー"),
+    limit: int = Query(
+        DEFAULT_LIMIT, ge=MIN_LIMIT, le=MAX_LIMIT, description="取得するRepository数"
+    ),
     db_connection: duckdb.DuckDBPyConnection = Depends(get_db_connection),
     config: BackendConfig = Depends(get_config),
     _: None = Depends(verify_api_key),
@@ -163,6 +166,7 @@ async def get_repositories_endpoint(
 
     Args:
         owner: フィルタ対象のオーナー（オプション）
+        limit: 取得するRepository数（1-1000）
 
     Returns:
         Repositoryリスト
@@ -170,7 +174,8 @@ async def get_repositories_endpoint(
     Example:
         GET /v1/data/github/repositories
     """
-    logger.info("Getting repositories: owner=%s", owner)
+    validated_limit = validate_limit(limit, max_value=1000)
+    logger.info("Getting repositories: owner=%s, limit=%s", owner, validated_limit)
     params = GitHubQueryParams(
         conn=db_connection,
         bucket=config.r2.bucket_name,
@@ -179,11 +184,11 @@ async def get_repositories_endpoint(
         start_date=date.min,
         end_date=date.max,
     )
-    return get_repositories(params, owner=owner)
+    return get_repositories(params, owner=owner, limit=validated_limit)
 
 
 @router.get("/activity-stats", response_model=list[ActivityStatsResponse])
-async def get_activity_stats_endpoint(
+def get_activity_stats_endpoint(
     start_date: date = Query(..., description="開始日（YYYY-MM-DD）"),
     end_date: date = Query(..., description="終了日（YYYY-MM-DD）"),
     granularity: str = Query(
@@ -230,7 +235,7 @@ async def get_activity_stats_endpoint(
 
 
 @router.get("/repo-summary-stats", response_model=list[RepoSummaryStatsResponse])
-async def get_repo_summary_stats_endpoint(
+def get_repo_summary_stats_endpoint(
     start_date: date = Query(..., description="開始日（YYYY-MM-DD）"),
     end_date: date = Query(..., description="終了日（YYYY-MM-DD）"),
     owner: str | None = Query(None, description="フィルタ対象のオーナー"),
