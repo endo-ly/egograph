@@ -88,6 +88,7 @@ private fun TerminalContent(
     var hasConnectedOnce by remember { mutableStateOf(false) }
     var reconnectAttempts by remember { mutableStateOf(0) }
     var reconnectJob by remember { mutableStateOf<Job?>(null) }
+    var isCopyModeOpen by remember { mutableStateOf(false) }
     val backoff = remember { createTerminalReconnectBackoff() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -199,6 +200,7 @@ private fun TerminalContent(
                 isLoading = isConnecting,
                 error = displayError,
                 onBack = { onClose?.invoke() ?: navigator.pop() },
+                onOpenCopyMode = { isCopyModeOpen = true },
             )
         },
     ) { paddingValues ->
@@ -252,5 +254,12 @@ private fun TerminalContent(
                 }
             }
         }
+    }
+
+    if (isCopyModeOpen) {
+        TerminalCopyModeSheet(
+            agentId = agentId,
+            onDismiss = { isCopyModeOpen = false },
+        )
     }
 }

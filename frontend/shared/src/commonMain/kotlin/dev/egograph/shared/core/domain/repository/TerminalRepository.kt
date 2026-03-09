@@ -1,6 +1,7 @@
 package dev.egograph.shared.core.domain.repository
 
 import dev.egograph.shared.core.domain.model.terminal.Session
+import dev.egograph.shared.core.domain.model.terminal.TerminalSnapshot
 import dev.egograph.shared.core.domain.model.terminal.TerminalWsToken
 import kotlinx.coroutines.flow.Flow
 
@@ -37,4 +38,12 @@ interface TerminalRepository {
      * @return WebSocket トークン
      */
     suspend fun issueWsToken(sessionId: String): RepositoryResult<TerminalWsToken>
+
+    /**
+     * セッションのプレーンテキスト snapshot を取得する
+     *
+     * @param sessionId セッションID
+     * @return 端末 snapshot
+     */
+    suspend fun getSnapshot(sessionId: String): RepositoryResult<TerminalSnapshot>
 }

@@ -155,12 +155,18 @@ class TestDetachSession:
         mock_process.returncode = None
         mock_process.wait = AsyncMock()
         mock_process.terminate = MagicMock()
+        mock_exit_copy_mode = AsyncMock()
 
         with (
             patch("gateway.services.pty_manager.pty.openpty", return_value=(10, 11)),
             patch("gateway.services.pty_manager.os.close") as mock_close,
             patch("gateway.services.pty_manager.os.set_blocking"),
             patch("gateway.services.pty_manager.fcntl.ioctl"),
+            patch.object(
+                pty_manager,
+                "_exit_copy_mode_if_needed",
+                new=mock_exit_copy_mode,
+            ),
             patch(
                 "asyncio.create_subprocess_exec",
                 new=AsyncMock(return_value=mock_process),
@@ -173,6 +179,7 @@ class TestDetachSession:
 
             assert not pty_manager.is_attached
             mock_process.terminate.assert_called_once()
+            mock_exit_copy_mode.assert_awaited_once()
             mock_close.assert_any_call(10)
 
 
@@ -189,12 +196,18 @@ class TestWriteInput:
         """入力書き込みが成功することを確認する。"""
         mock_process = MagicMock()
         mock_process.returncode = None
+        mock_exit_copy_mode = AsyncMock()
 
         with (
             patch("gateway.services.pty_manager.pty.openpty", return_value=(10, 11)),
             patch("gateway.services.pty_manager.os.close"),
             patch("gateway.services.pty_manager.os.set_blocking"),
             patch("gateway.services.pty_manager.fcntl.ioctl"),
+            patch.object(
+                pty_manager,
+                "_exit_copy_mode_if_needed",
+                new=mock_exit_copy_mode,
+            ),
             patch(
                 "asyncio.create_subprocess_exec",
                 new=AsyncMock(return_value=mock_process),
@@ -208,6 +221,7 @@ class TestWriteInput:
             test_data = b"test input"
             await pty_manager.write_input(test_data)
 
+            mock_exit_copy_mode.assert_awaited_once()
             mock_write.assert_called_once_with(10, test_data)
 
     @pytest.mark.asyncio
@@ -319,7 +333,7 @@ class TestResizeWindow:
                 "tmux",
                 "resize-window",
                 "-t",
-                "=agent-0001",
+                "agent-0001",
                 "-x",
                 "120",
                 "-y",
@@ -365,6 +379,129 @@ class TestResizeWindow:
         ):
             with pytest.raises(RuntimeError, match="Failed to resize tmux window"):
                 await pty_manager.resize_window(cols=120, rows=40)
+
+
+class TestScrollHistory:
+    """scroll_historyメソッドのテスト。"""
+
+    @pytest.mark.asyncio
+    async def test_scroll_history_up_enters_copy_mode_and_scrolls(self, pty_manager):
+        enter_process = MagicMock()
+        enter_process.returncode = 0
+        enter_process.communicate = AsyncMock(return_value=(b"", b""))
+        scroll_process = MagicMock()
+        scroll_process.returncode = 0
+        scroll_process.communicate = AsyncMock(return_value=(b"", b""))
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            new=AsyncMock(side_effect=[enter_process, scroll_process]),
+        ) as mock_exec:
+            await pty_manager.scroll_history(-3)
+
+            assert mock_exec.call_args_list[0].args == (
+                "tmux",
+                "copy-mode",
+                "-e",
+                "-t",
+                "agent-0001",
+            )
+            assert mock_exec.call_args_list[1].args == (
+                "tmux",
+                "send-keys",
+                "-t",
+                "agent-0001",
+                "-X",
+                "-N",
+                "3",
+                "scroll-up",
+            )
+
+    @pytest.mark.asyncio
+    async def test_scroll_history_down_scrolls_only_in_copy_mode(self, pty_manager):
+        status_process = MagicMock()
+        status_process.returncode = 0
+        status_process.communicate = AsyncMock(return_value=(b"1\n", b""))
+        scroll_process = MagicMock()
+        scroll_process.returncode = 0
+        scroll_process.communicate = AsyncMock(return_value=(b"", b""))
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            new=AsyncMock(side_effect=[status_process, scroll_process]),
+        ) as mock_exec:
+            await pty_manager.scroll_history(2)
+
+            assert mock_exec.call_args_list[0].args == (
+                "tmux",
+                "display-message",
+                "-p",
+                "-t",
+                "agent-0001",
+                "#{pane_in_mode}",
+            )
+            assert mock_exec.call_args_list[1].args == (
+                "tmux",
+                "send-keys",
+                "-t",
+                "agent-0001",
+                "-X",
+                "-N",
+                "2",
+                "scroll-down",
+            )
+
+    @pytest.mark.asyncio
+    async def test_scroll_history_down_noops_outside_copy_mode(self, pty_manager):
+        status_process = MagicMock()
+        status_process.returncode = 0
+        status_process.communicate = AsyncMock(return_value=(b"0\n", b""))
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            new=AsyncMock(return_value=status_process),
+        ) as mock_exec:
+            await pty_manager.scroll_history(2)
+
+            mock_exec.assert_called_once_with(
+                "tmux",
+                "display-message",
+                "-p",
+                "-t",
+                "agent-0001",
+                "#{pane_in_mode}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+    @pytest.mark.asyncio
+    async def test_scroll_history_rejects_out_of_range(self, pty_manager):
+        with pytest.raises(ValueError, match="lines must be between"):
+            await pty_manager.scroll_history(21)
+
+    @pytest.mark.asyncio
+    async def test_exit_copy_mode_if_needed_sends_cancel(self, pty_manager):
+        status_process = MagicMock()
+        status_process.returncode = 0
+        status_process.communicate = AsyncMock(return_value=(b"1\n", b""))
+        cancel_process = MagicMock()
+        cancel_process.returncode = 0
+        cancel_process.communicate = AsyncMock(return_value=(b"", b""))
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            new=AsyncMock(side_effect=[status_process, cancel_process]),
+        ) as mock_exec:
+            await pty_manager._exit_copy_mode_if_needed()
+
+            assert mock_exec.call_args_list[1].args == (
+                "tmux",
+                "send-keys",
+                "-t",
+                "agent-0001",
+                "-X",
+                "cancel",
+            )
 
 
 # ============================================================================

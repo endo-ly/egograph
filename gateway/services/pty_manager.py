@@ -23,6 +23,7 @@ TMUX_CURSOR_TIMEOUT_SECONDS: Final = 1.0
 TMUX_ATTACH_TERM: Final = "xterm-256color"
 DEFAULT_PTY_COLS: Final = 80
 DEFAULT_PTY_ROWS: Final = 24
+MAX_SCROLL_LINES: Final = 20
 
 
 class TmuxAttachManager:
@@ -47,7 +48,8 @@ class TmuxAttachManager:
                 "Only alphanumeric characters and hyphens are allowed."
             )
         self._session_id = session_id
-        self._tmux_target = f"={session_id}"
+        self._tmux_attach_target = f"={session_id}"
+        self._tmux_session_target = session_id
         self._process: asyncio.subprocess.Process | None = None
         self._stdin: asyncio.StreamWriter | None = None
         self._stdout: asyncio.StreamReader | None = None
@@ -125,7 +127,7 @@ class TmuxAttachManager:
                 "tmux",
                 "attach",
                 "-t",
-                self._tmux_target,
+                self._tmux_attach_target,
                 stdin=slave_fd,
                 stdout=slave_fd,
                 stderr=slave_fd,
@@ -171,13 +173,21 @@ class TmuxAttachManager:
     async def _configure_session_for_web_client(self) -> None:
         """Web表示向けにtmuxの装飾行を無効化する。"""
         commands = [
-            ["tmux", "set-option", "-q", "-t", self._tmux_target, "status", "off"],
+            [
+                "tmux",
+                "set-option",
+                "-q",
+                "-t",
+                self._tmux_session_target,
+                "status",
+                "off",
+            ],
             [
                 "tmux",
                 "set-window-option",
                 "-q",
                 "-t",
-                self._tmux_target,
+                self._tmux_session_target,
                 "pane-border-status",
                 "off",
             ],
@@ -205,6 +215,11 @@ class TmuxAttachManager:
             return
 
         logger.info("Detaching from session: %s", self._session_id)
+
+        try:
+            await self._exit_copy_mode_if_needed()
+        except Exception as e:
+            logger.debug("Failed to exit copy mode before detach: %s", e)
 
         # プロセスを終了
         if self._process and self._process.returncode is None:
@@ -255,6 +270,7 @@ class TmuxAttachManager:
             raise RuntimeError("Not attached to session")
 
         try:
+            await self._exit_copy_mode_if_needed()
             if self._master_fd is not None:
                 await self._write_master(data)
                 return
@@ -304,7 +320,7 @@ class TmuxAttachManager:
         await flush_chunk()
 
     async def _run_tmux_send_keys(self, args: list[str]) -> None:
-        cmd = ["tmux", "send-keys", "-t", self._tmux_target, *args]
+        cmd = ["tmux", "send-keys", "-t", self._tmux_session_target, *args]
         process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -322,6 +338,112 @@ class TmuxAttachManager:
         if process.returncode != 0:
             message = stderr.decode("utf-8", errors="ignore").strip() or "unknown error"
             raise RuntimeError(f"Failed to send keys via tmux: {message}")
+
+    async def scroll_history(self, lines: int) -> None:
+        """tmux copy-mode の履歴をスクロールする。"""
+        if not isinstance(lines, int):
+            raise ValueError(f"lines must be an integer, got {lines}")
+        if lines == 0:
+            return
+        if abs(lines) > MAX_SCROLL_LINES:
+            raise ValueError(
+                "lines must be between "
+                f"{-MAX_SCROLL_LINES} and {MAX_SCROLL_LINES}, got {lines}"
+            )
+
+        if lines < 0:
+            await self._enter_copy_mode()
+            await self._run_tmux_copy_mode_command("scroll-up", abs(lines))
+            return
+
+        if await self._is_in_copy_mode():
+            await self._run_tmux_copy_mode_command("scroll-down", lines)
+
+    async def _exit_copy_mode_if_needed(self) -> None:
+        if await self._is_in_copy_mode():
+            await self._run_tmux_copy_mode_command("cancel")
+
+    async def _enter_copy_mode(self) -> None:
+        cmd = ["tmux", "copy-mode", "-e", "-t", self._tmux_session_target]
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=TMUX_CAPTURE_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as e:
+            process.kill()
+            await process.wait()
+            raise RuntimeError("tmux copy-mode timed out") from e
+        if process.returncode != 0:
+            message = stderr.decode("utf-8", errors="ignore").strip() or "unknown error"
+            raise RuntimeError(f"Failed to enter tmux copy mode: {message}")
+
+    async def _is_in_copy_mode(self) -> bool:
+        cmd = [
+            "tmux",
+            "display-message",
+            "-p",
+            "-t",
+            self._tmux_session_target,
+            "#{pane_in_mode}",
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, _ = await asyncio.wait_for(
+                process.communicate(),
+                timeout=TMUX_CURSOR_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.wait()
+            return False
+
+        if process.returncode != 0:
+            return False
+
+        return stdout.decode("utf-8", errors="ignore").strip() == "1"
+
+    async def _run_tmux_copy_mode_command(
+        self,
+        command: str,
+        count: int | None = None,
+    ) -> None:
+        cmd = [
+            "tmux",
+            "send-keys",
+            "-t",
+            self._tmux_session_target,
+            "-X",
+            command,
+        ]
+        if count is not None:
+            cmd[5:5] = ["-N", str(count)]
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=TMUX_CAPTURE_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as e:
+            process.kill()
+            await process.wait()
+            raise RuntimeError("tmux copy-mode send-keys timed out") from e
+        if process.returncode != 0:
+            message = stderr.decode("utf-8", errors="ignore").strip() or "unknown error"
+            raise RuntimeError(f"Failed to scroll tmux copy mode: {message}")
 
     async def read_output(self, n: int = 4096) -> bytes:
         """端末から出力データを読み込む。
@@ -464,7 +586,7 @@ class TmuxAttachManager:
             "tmux",
             "resize-window",
             "-t",
-            self._tmux_target,
+            self._tmux_session_target,
             "-x",
             str(cols),
             "-y",
@@ -480,18 +602,12 @@ class TmuxAttachManager:
             message = stderr.decode("utf-8", errors="ignore").strip() or "unknown error"
             raise RuntimeError(f"Failed to resize tmux window: {message}")
 
-    async def capture_snapshot(self) -> bytes:
+    async def capture_snapshot(self, include_escape_sequences: bool = False) -> bytes:
         """現在の tmux ペイン内容を取得する。"""
-        cmd = [
-            "tmux",
-            "capture-pane",
-            "-p",
-            "-e",
-            "-S",
-            "-200",
-            "-t",
-            self._tmux_target,
-        ]
+        cmd = ["tmux", "capture-pane", "-p"]
+        if include_escape_sequences:
+            cmd.append("-e")
+        cmd.extend(["-S", "-200", "-t", self._tmux_session_target])
         process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -520,7 +636,7 @@ class TmuxAttachManager:
             "display-message",
             "-p",
             "-t",
-            self._tmux_target,
+            self._tmux_session_target,
             "#{cursor_x},#{cursor_y},#{pane_height}",
         ]
         process = await asyncio.create_subprocess_exec(

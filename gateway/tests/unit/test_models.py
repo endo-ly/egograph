@@ -8,7 +8,9 @@ from pydantic import ValidationError
 from gateway.domain.models import (
     PushNotificationRequest,
     TerminalSession,
+    TerminalSnapshotResponse,
     WebhookPayload,
+    WSScrollMessage,
 )
 
 # ============================================================================
@@ -74,6 +76,36 @@ class TestTerminalSession:
         assert parsed["session_id"] == "agent-0001"
         assert parsed["activity"] == "2025-02-10 10:30:00"
         assert parsed["created"] == "2025-02-10 09:00:00"
+
+
+class TestTerminalSnapshotResponse:
+    """TerminalSnapshotResponse モデルのテスト。"""
+
+    def test_serializes_to_json(self):
+        """snapshot レスポンスが JSON にシリアライズされることを確認する。"""
+        response = TerminalSnapshotResponse(
+            session_id="agent-0001",
+            content="line 1\nline 2",
+        )
+
+        parsed = json.loads(response.model_dump_json())
+
+        assert parsed["session_id"] == "agent-0001"
+        assert parsed["content"] == "line 1\nline 2"
+
+
+class TestWSScrollMessage:
+    """WSScrollMessage モデルのテスト。"""
+
+    def test_accepts_scroll_lines_within_range(self):
+        message = WSScrollMessage(lines=-6)
+
+        assert message.type == "scroll"
+        assert message.lines == -6
+
+    def test_rejects_scroll_lines_out_of_range(self):
+        with pytest.raises(ValidationError):
+            WSScrollMessage(lines=21)
 
 
 # ============================================================================

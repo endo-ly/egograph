@@ -71,6 +71,17 @@ class WSResizeMessage(BaseModel):
     rows: int = Field(..., ge=1, le=512, description="端末の行数")
 
 
+class WSScrollMessage(BaseModel):
+    """クライアントからサーバーへのスクロールメッセージ。
+
+    スクロールする行数を正負付き整数で送信する。
+    負値は上方向、正値は下方向を表す。
+    """
+
+    type: Literal["scroll"] = Field(default="scroll", description="メッセージタイプ")
+    lines: int = Field(..., ge=-20, le=20, description="スクロール行数")
+
+
 class WSPingMessage(BaseModel):
     """クライアントからサーバーへのPingメッセージ。
 
@@ -176,6 +187,13 @@ class TerminalSession(BaseModel):
     session_id: str = Field(..., description="tmuxセッションID")
     activity: str | None = Field(None, description="最終アクティブ時刻")
     created: str | None = Field(None, description="セッション作成時刻")
+
+
+class TerminalSnapshotResponse(BaseModel):
+    """端末スナップショットレスポンス。"""
+
+    session_id: str = Field(..., description="tmuxセッションID")
+    content: str = Field(..., description="キャプチャした端末テキスト")
 
 
 # ============================================================================

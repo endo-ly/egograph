@@ -3,6 +3,7 @@ package dev.egograph.shared.core.data.repository
 import dev.egograph.shared.core.data.repository.internal.InMemoryCache
 import dev.egograph.shared.core.data.repository.internal.RepositoryClient
 import dev.egograph.shared.core.domain.model.terminal.Session
+import dev.egograph.shared.core.domain.model.terminal.TerminalSnapshot
 import dev.egograph.shared.core.domain.model.terminal.TerminalWsToken
 import dev.egograph.shared.core.domain.repository.RepositoryResult
 import dev.egograph.shared.core.domain.repository.TerminalRepository
@@ -75,6 +76,12 @@ class TerminalRepositoryImpl(
         wrapRepositoryOperation {
             val encodedSessionId = sessionId.encodeURLPathPart()
             repositoryClient.post<TerminalWsToken>("/api/v1/terminal/sessions/$encodedSessionId/ws-token")
+        }
+
+    override suspend fun getSnapshot(sessionId: String): RepositoryResult<TerminalSnapshot> =
+        wrapRepositoryOperation {
+            val encodedSessionId = sessionId.encodeURLPathPart()
+            repositoryClient.get<TerminalSnapshot>("/api/v1/terminal/sessions/$encodedSessionId/snapshot")
         }
 
     @Serializable

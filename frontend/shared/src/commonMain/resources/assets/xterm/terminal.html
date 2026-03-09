@@ -71,8 +71,9 @@
             var MAX_COLS = 240;
             var MIN_ROWS = 12;
             var MAX_ROWS = 200;
-            var MAX_WHEEL_STEPS = 10;
             var MIN_SCROLL_DELTA = 1;
+            var SCROLL_DAMPING_FACTOR = 0.5;
+            var MAX_SCROLL_LINES = 6;
             var RESIZE_DEBOUNCE_MS = 200;
 
             var TERMINAL_THEME = {
@@ -240,6 +241,18 @@
                 }));
             }
 
+            function sendScroll(lines) {
+                if (!isSocketOpen() || typeof lines !== 'number' || lines === 0) {
+                    return false;
+                }
+
+                websocket.send(JSON.stringify({
+                    type: 'scroll',
+                    lines: lines,
+                }));
+                return true;
+            }
+
             function routeInput(data) {
                 sendInput(data);
             }
@@ -273,25 +286,21 @@
                 }
 
                 var cellHeight = Math.max(getCellHeight(), 1);
-                touchScrollRemainder += pixelDelta;
+                touchScrollRemainder += pixelDelta * SCROLL_DAMPING_FACTOR;
                 var lineDelta = Math.trunc(touchScrollRemainder / cellHeight);
-                touchScrollRemainder -= lineDelta * cellHeight;
+                var sentAny = false;
 
-                if (lineDelta === 0) {
-                    return false;
+                while (lineDelta !== 0) {
+                    var clampedLines = clamp(lineDelta, -MAX_SCROLL_LINES, MAX_SCROLL_LINES);
+                    if (!sendScroll(clampedLines)) {
+                        return sentAny;
+                    }
+                    touchScrollRemainder -= clampedLines * cellHeight;
+                    sentAny = true;
+                    lineDelta = Math.trunc(touchScrollRemainder / cellHeight);
                 }
 
-                var steps = Math.min(Math.abs(lineDelta), MAX_WHEEL_STEPS);
-                var isWheelUp = lineDelta < 0;
-                var buttonCode = isWheelUp ? 64 : 65;
-                var col = Math.max(1, Math.floor(terminal.cols / 2));
-                var row = Math.max(1, Math.floor(terminal.rows / 2));
-                var sgrSequence = '\u001b[<' + buttonCode + ';' + col + ';' + row + 'M';
-
-                for (var i = 0; i < steps; i++) {
-                    sendInput(sgrSequence);
-                }
-                return true;
+                return sentAny;
             }
 
             function handleMouseWheelScroll(event) {

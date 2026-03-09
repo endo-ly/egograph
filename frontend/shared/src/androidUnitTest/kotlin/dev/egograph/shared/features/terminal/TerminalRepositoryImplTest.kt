@@ -4,6 +4,7 @@ import dev.egograph.shared.core.data.repository.TerminalRepositoryImpl
 import dev.egograph.shared.core.data.repository.internal.RepositoryClient
 import dev.egograph.shared.core.domain.model.terminal.Session
 import dev.egograph.shared.core.domain.model.terminal.SessionStatus
+import dev.egograph.shared.core.domain.model.terminal.TerminalSnapshot
 import dev.egograph.shared.core.domain.repository.ApiError
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -326,5 +327,67 @@ class TerminalRepositoryImplTest {
             assertTrue(result.isFailure)
             val error = assertIs<ApiError.HttpError>(result.exceptionOrNull()!!)
             assertEquals(404, error.code)
+        }
+
+    @Test
+    fun `getSnapshot - success returns terminal snapshot`() =
+        runTest {
+            val sessionId = "agent-0002"
+            val expectedResponse =
+                """
+                {
+                    "session_id": "agent-0002",
+                    "content": "line 1\nline 2"
+                }
+                """.trimIndent()
+
+            val mockEngine =
+                MockEngine {
+                    assertEquals(HttpMethod.Get, it.method)
+                    assertEquals("$baseUrl/api/v1/terminal/sessions/$sessionId/snapshot", it.url.toString())
+                    assertEquals(apiKey, it.headers["X-API-Key"])
+
+                    respond(
+                        content = expectedResponse,
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "application/json"),
+                    )
+                }
+
+            val repositoryClient = createMockRepositoryClient(mockEngine)
+            val repository = TerminalRepositoryImpl(repositoryClient)
+
+            val result = repository.getSnapshot(sessionId)
+
+            assertTrue(result.isSuccess)
+            val actual = result.getOrNull() ?: error("snapshot should be present")
+            assertEquals(TerminalSnapshot("agent-0002", "line 1\nline 2"), actual)
+        }
+
+    @Test
+    fun `getSnapshot - HTTP 500 Internal Server Error`() =
+        runTest {
+            val sessionId = "agent-0002"
+
+            val mockEngine =
+                MockEngine {
+                    assertEquals(HttpMethod.Get, it.method)
+                    assertEquals("$baseUrl/api/v1/terminal/sessions/$sessionId/snapshot", it.url.toString())
+
+                    respond(
+                        content = """{"detail": "Failed to capture snapshot"}""",
+                        status = HttpStatusCode.InternalServerError,
+                        headers = headersOf("Content-Type", "application/json"),
+                    )
+                }
+
+            val repositoryClient = createMockRepositoryClient(mockEngine)
+            val repository = TerminalRepositoryImpl(repositoryClient)
+
+            val result = repository.getSnapshot(sessionId)
+
+            assertTrue(result.isFailure)
+            val error = assertIs<ApiError.HttpError>(result.exceptionOrNull()!!)
+            assertEquals(500, error.code)
         }
 }

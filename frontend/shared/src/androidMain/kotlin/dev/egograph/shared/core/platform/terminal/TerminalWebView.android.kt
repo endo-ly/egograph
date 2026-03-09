@@ -115,14 +115,13 @@ class AndroidTerminalWebView(
      * xterm の 1 行スクロールへ変換するため、ピクセル差分を JavaScript 側へ渡す。
      */
     private fun sendScrollByPixels(pixelDelta: Float) {
-        val delta = pixelDelta.toInt()
-        if (delta == 0) {
+        if (pixelDelta == 0f) {
             return
         }
         evaluateJavascript(
             """
             if (window.TerminalAPI && typeof window.TerminalAPI.scrollByPixels === 'function') {
-                window.TerminalAPI.scrollByPixels($delta);
+                window.TerminalAPI.scrollByPixels($pixelDelta);
             }
             """,
         )

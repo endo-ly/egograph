@@ -94,6 +94,18 @@ class TestHandleClientMessage:
         pty_manager.resize_window.assert_called_once_with(cols=120, rows=30)
 
     @pytest.mark.asyncio
+    async def test_handle_scroll_message(self, websocket_handler):
+        """スクロールメッセージが正しく処理されることを確認する。"""
+        message_data = {"type": "scroll", "lines": -3}
+        pty_manager = MagicMock()
+        pty_manager.scroll_history = AsyncMock()
+        websocket_handler._pty_manager = pty_manager
+
+        await websocket_handler._handle_client_message(json.dumps(message_data))
+
+        pty_manager.scroll_history.assert_awaited_once_with(-3)
+
+    @pytest.mark.asyncio
     async def test_handle_ping_message(self, websocket_handler):
         """Pingメッセージが正しく処理されることを確認する。"""
         # Arrange

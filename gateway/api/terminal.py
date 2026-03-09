@@ -22,8 +22,9 @@ from gateway.config import (
     is_tailscale_hostname,
 )
 from gateway.dependencies import get_config, verify_gateway_token
-from gateway.domain.models import SessionStatus
+from gateway.domain.models import SessionStatus, TerminalSnapshotResponse
 from gateway.infrastructure.tmux import list_sessions, session_exists
+from gateway.services.pty_manager import TmuxAttachManager
 from gateway.services.websocket_handler import TerminalWebSocketHandler
 from gateway.services.ws_token_store import terminal_ws_token_store
 
@@ -140,6 +141,37 @@ async def issue_ws_token(request: Request) -> JSONResponse:
     )
 
 
+async def get_session_snapshot(request: Request) -> JSONResponse:
+    """指定された tmux セッションのプレーンテキスト snapshot を返す。"""
+    await verify_gateway_token(request)
+
+    session_id = request.path_params.get("session_id")
+    if not session_id or not _validate_session_id(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session_id format")
+
+    if not await anyio.to_thread.run_sync(session_exists, session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    manager = TmuxAttachManager(session_id)
+    try:
+        snapshot = await manager.capture_snapshot(include_escape_sequences=False)
+    except Exception as e:
+        logger.error("Failed to capture snapshot for %s: %s", session_id, e)
+        raise HTTPException(status_code=500, detail="Failed to capture snapshot") from e
+
+    response = TerminalSnapshotResponse(
+        session_id=session_id,
+        content=snapshot.decode("utf-8", errors="replace"),
+    )
+    return JSONResponse(
+        response.model_dump(),
+        headers={
+            "Cache-Control": "no-store",
+            "Pragma": "no-cache",
+        },
+    )
+
+
 def get_terminal_routes() -> list[Route]:
     """Terminal API ルートを取得します。
 
@@ -153,6 +185,11 @@ def get_terminal_routes() -> list[Route]:
             "/v1/terminal/sessions/{session_id}/ws-token",
             issue_ws_token,
             methods=["POST"],
+        ),
+        Route(
+            "/v1/terminal/sessions/{session_id}/snapshot",
+            get_session_snapshot,
+            methods=["GET"],
         ),
         WebSocketRoute("/ws/terminal", terminal_websocket),
     ]
