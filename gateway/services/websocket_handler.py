@@ -18,6 +18,7 @@ from gateway.domain.models import (
     WSPingMessage,
     WSPongMessage,
     WSResizeMessage,
+    WSScrollMessage,
     WSStatusMessage,
 )
 from gateway.services.pty_manager import TmuxAttachManager
@@ -103,6 +104,8 @@ class TerminalWebSocketHandler:
                 await self._handle_input(WSInputMessage(**data))
             elif msg_type == "resize":
                 await self._handle_resize(WSResizeMessage(**data))
+            elif msg_type == "scroll":
+                await self._handle_scroll(WSScrollMessage(**data))
             elif msg_type == "ping":
                 await self._handle_ping(WSPingMessage(**data))
             else:
@@ -158,6 +161,14 @@ class TerminalWebSocketHandler:
             message: Pingメッセージ
         """
         await self._send_pong()
+
+    async def _handle_scroll(self, message: WSScrollMessage) -> None:
+        """スクロールメッセージを処理する。"""
+        try:
+            await self._pty_manager.scroll_history(message.lines)
+        except Exception as e:
+            logger.error("Failed to scroll session %s: %s", self._session_id, e)
+            await self._send_error("scroll_error", str(e))
 
     async def _send_to_client(self) -> None:
         """PTYからの出力をクライアントに送信する。"""

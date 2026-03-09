@@ -23,6 +23,7 @@ TMUX_CURSOR_TIMEOUT_SECONDS: Final = 1.0
 TMUX_ATTACH_TERM: Final = "xterm-256color"
 DEFAULT_PTY_COLS: Final = 80
 DEFAULT_PTY_ROWS: Final = 24
+MAX_SCROLL_LINES: Final = 20
 
 
 class TmuxAttachManager:
@@ -331,6 +332,103 @@ class TmuxAttachManager:
         if process.returncode != 0:
             message = stderr.decode("utf-8", errors="ignore").strip() or "unknown error"
             raise RuntimeError(f"Failed to send keys via tmux: {message}")
+
+    async def scroll_history(self, lines: int) -> None:
+        """tmux copy-mode の履歴をスクロールする。"""
+        if not isinstance(lines, int):
+            raise ValueError(f"lines must be an integer, got {lines}")
+        if lines == 0:
+            return
+        if abs(lines) > MAX_SCROLL_LINES:
+            raise ValueError(
+                f"lines must be between {-MAX_SCROLL_LINES} and {MAX_SCROLL_LINES}, got {lines}"
+            )
+
+        if lines < 0:
+            await self._enter_copy_mode()
+            await self._run_tmux_copy_mode_command("scroll-up", abs(lines))
+            return
+
+        if await self._is_in_copy_mode():
+            await self._run_tmux_copy_mode_command("scroll-down", lines)
+
+    async def _enter_copy_mode(self) -> None:
+        cmd = ["tmux", "copy-mode", "-e", "-t", self._tmux_session_target]
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=TMUX_CAPTURE_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as e:
+            process.kill()
+            await process.wait()
+            raise RuntimeError("tmux copy-mode timed out") from e
+        if process.returncode != 0:
+            message = stderr.decode("utf-8", errors="ignore").strip() or "unknown error"
+            raise RuntimeError(f"Failed to enter tmux copy mode: {message}")
+
+    async def _is_in_copy_mode(self) -> bool:
+        cmd = [
+            "tmux",
+            "display-message",
+            "-p",
+            "-t",
+            self._tmux_session_target,
+            "#{pane_in_mode}",
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, _ = await asyncio.wait_for(
+                process.communicate(),
+                timeout=TMUX_CURSOR_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.wait()
+            return False
+
+        if process.returncode != 0:
+            return False
+
+        return stdout.decode("utf-8", errors="ignore").strip() == "1"
+
+    async def _run_tmux_copy_mode_command(self, command: str, count: int) -> None:
+        cmd = [
+            "tmux",
+            "send-keys",
+            "-t",
+            self._tmux_session_target,
+            "-X",
+            "-N",
+            str(count),
+            command,
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=TMUX_CAPTURE_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as e:
+            process.kill()
+            await process.wait()
+            raise RuntimeError("tmux copy-mode send-keys timed out") from e
+        if process.returncode != 0:
+            message = stderr.decode("utf-8", errors="ignore").strip() or "unknown error"
+            raise RuntimeError(f"Failed to scroll tmux copy mode: {message}")
 
     async def read_output(self, n: int = 4096) -> bytes:
         """端末から出力データを読み込む。

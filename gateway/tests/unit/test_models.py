@@ -10,6 +10,7 @@ from gateway.domain.models import (
     TerminalSnapshotResponse,
     TerminalSession,
     WebhookPayload,
+    WSScrollMessage,
 )
 
 # ============================================================================
@@ -91,6 +92,20 @@ class TestTerminalSnapshotResponse:
 
         assert parsed["session_id"] == "agent-0001"
         assert parsed["content"] == "line 1\nline 2"
+
+
+class TestWSScrollMessage:
+    """WSScrollMessage モデルのテスト。"""
+
+    def test_accepts_scroll_lines_within_range(self):
+        message = WSScrollMessage(lines=-6)
+
+        assert message.type == "scroll"
+        assert message.lines == -6
+
+    def test_rejects_scroll_lines_out_of_range(self):
+        with pytest.raises(ValidationError):
+            WSScrollMessage(lines=21)
 
 
 # ============================================================================
