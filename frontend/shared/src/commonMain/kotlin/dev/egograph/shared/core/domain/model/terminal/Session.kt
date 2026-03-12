@@ -26,6 +26,10 @@ data class Session(
     val lastActivity: String,
     @SerialName("created_at")
     val createdAt: String,
+    @SerialName("preview_available")
+    val previewAvailable: Boolean = false,
+    @SerialName("preview_lines")
+    val previewLines: List<String> = emptyList(),
 )
 
 /**

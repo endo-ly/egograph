@@ -69,14 +69,18 @@ class TerminalRepositoryImplTest {
                             "name": "Test Session 1",
                             "status": "connected",
                             "last_activity": "2025-01-01T00:00:00Z",
-                            "created_at": "2025-01-01T00:00:00Z"
+                            "created_at": "2025-01-01T00:00:00Z",
+                            "preview_available": true,
+                            "preview_lines": ["$ uv run pytest", "2 passed"]
                         },
                         {
                             "session_id": "session-2",
                             "name": "Test Session 2",
                             "status": "connected",
                             "last_activity": "2025-01-01T01:00:00Z",
-                            "created_at": "2025-01-01T00:00:00Z"
+                            "created_at": "2025-01-01T00:00:00Z",
+                            "preview_available": false,
+                            "preview_lines": []
                         }
                     ],
                     "count": 2
@@ -115,9 +119,57 @@ class TerminalRepositoryImplTest {
             assertEquals("session-1", actual[0].sessionId)
             assertEquals("Test Session 1", actual[0].name)
             assertEquals(SessionStatus.CONNECTED, actual[0].status)
+            assertEquals(true, actual[0].previewAvailable)
+            assertEquals(listOf("$ uv run pytest", "2 passed"), actual[0].previewLines)
             assertEquals("session-2", actual[1].sessionId)
             assertEquals("Test Session 2", actual[1].name)
             assertEquals(SessionStatus.CONNECTED, actual[1].status)
+            assertEquals(false, actual[1].previewAvailable)
+            assertEquals(emptyList(), actual[1].previewLines)
+        }
+
+    @Test
+    fun `getSessions - missing preview fields fall back safely`() =
+        runTest {
+            val expectedResponse =
+                """
+                {
+                    "sessions": [
+                        {
+                            "session_id": "session-fallback",
+                            "name": "Fallback Session",
+                            "status": "connected",
+                            "last_activity": "2025-01-01T00:00:00Z",
+                            "created_at": "2025-01-01T00:00:00Z"
+                        }
+                    ],
+                    "count": 1
+                }
+                """.trimIndent()
+
+            val mockEngine =
+                MockEngine {
+                    respond(
+                        content = expectedResponse,
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "application/json"),
+                    )
+                }
+
+            val repositoryClient = createMockRepositoryClient(mockEngine)
+            val repository = TerminalRepositoryImpl(repositoryClient)
+
+            val results = mutableListOf<List<Session>>()
+            repository.getSessions().collect { result ->
+                if (result.isSuccess) {
+                    results.add(result.getOrNull()!!)
+                }
+            }
+
+            assertEquals(1, results.size)
+            val session = results.first().single()
+            assertEquals(false, session.previewAvailable)
+            assertEquals(emptyList(), session.previewLines)
         }
 
     @Test

@@ -31,7 +31,9 @@ class SessionTest {
                 "name": "Terminal Session 1",
                 "status": "connected",
                 "last_activity": "2026-02-10T12:34:56Z",
-                "created_at": "2026-02-10T10:00:00Z"
+                "created_at": "2026-02-10T10:00:00Z",
+                "preview_available": true,
+                "preview_lines": ["$ uv run pytest", "2 passed"]
             }
             """.trimIndent()
 
@@ -45,6 +47,8 @@ class SessionTest {
         assertEquals(SessionStatus.CONNECTED, session.status)
         assertEquals("2026-02-10T12:34:56Z", session.lastActivity)
         assertEquals("2026-02-10T10:00:00Z", session.createdAt)
+        assertEquals(true, session.previewAvailable)
+        assertEquals(listOf("$ uv run pytest", "2 passed"), session.previewLines)
     }
 
     @Test
@@ -74,6 +78,8 @@ class SessionTest {
         assertEquals(SessionStatus.CONNECTED, session.status)
         assertEquals("2026-02-10T13:00:00Z", session.lastActivity)
         assertEquals("2026-02-10T11:00:00Z", session.createdAt)
+        assertEquals(false, session.previewAvailable)
+        assertEquals(emptyList(), session.previewLines)
     }
 
     @Test
@@ -124,6 +130,8 @@ class SessionTest {
                     status = SessionStatus.CONNECTED,
                     lastActivity = "2026-02-10T12:00:00Z",
                     createdAt = "2026-02-10T10:00:00Z",
+                    previewAvailable = true,
+                    previewLines = listOf("ready", "listening"),
                 ),
             )
 
@@ -137,6 +145,8 @@ class SessionTest {
             assertEquals(original.status, decoded.status)
             assertEquals(original.lastActivity, decoded.lastActivity)
             assertEquals(original.createdAt, decoded.createdAt)
+            assertEquals(original.previewAvailable, decoded.previewAvailable)
+            assertEquals(original.previewLines, decoded.previewLines)
         }
     }
 
@@ -150,6 +160,8 @@ class SessionTest {
                 status = SessionStatus.CONNECTED,
                 lastActivity = "2026-02-10T15:00:00Z",
                 createdAt = "2026-02-10T13:00:00Z",
+                previewAvailable = true,
+                previewLines = listOf("Preview unavailable"),
             )
 
         // Act: JSONにシリアライズ
@@ -159,6 +171,27 @@ class SessionTest {
         assertTrue(jsonString.contains("\"session_id\""))
         assertTrue(jsonString.contains("\"last_activity\""))
         assertTrue(jsonString.contains("\"created_at\""))
+        assertTrue(jsonString.contains("\"preview_available\":true"))
+        assertTrue(jsonString.contains("\"preview_lines\""))
         assertTrue(jsonString.contains("\"status\":\"connected\""))
+    }
+
+    @Test
+    fun `fromJson - missing preview fields uses fallback defaults`() {
+        val jsonWithoutPreview =
+            """
+            {
+                "session_id": "sess-fallback",
+                "name": "Fallback Session",
+                "status": "connected",
+                "last_activity": "2026-02-10T12:34:56Z",
+                "created_at": "2026-02-10T10:00:00Z"
+            }
+            """.trimIndent()
+
+        val session = json.decodeFromString<Session>(jsonWithoutPreview)
+
+        assertEquals(false, session.previewAvailable)
+        assertEquals(emptyList(), session.previewLines)
     }
 }
