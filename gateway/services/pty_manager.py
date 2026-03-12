@@ -604,7 +604,7 @@ class TmuxAttachManager:
 
     async def capture_snapshot(self, include_escape_sequences: bool = False) -> bytes:
         """現在の tmux ペイン内容を取得する。"""
-        cmd = ["tmux", "capture-pane", "-p"]
+        cmd = ["tmux", "capture-pane", "-p", "-J"]
         if include_escape_sequences:
             cmd.append("-e")
         cmd.extend(["-S", "-200", "-t", self._tmux_session_target])

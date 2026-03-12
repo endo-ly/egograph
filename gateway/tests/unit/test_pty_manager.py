@@ -381,6 +381,35 @@ class TestResizeWindow:
                 await pty_manager.resize_window(cols=120, rows=40)
 
 
+class TestCaptureSnapshot:
+    """capture_snapshotメソッドのテスト。"""
+
+    @pytest.mark.asyncio
+    async def test_capture_snapshot_uses_session_target(self, pty_manager):
+        """snapshot取得が session target を使うことを確認する。"""
+        mock_process = MagicMock()
+        mock_process.communicate = AsyncMock(return_value=(b"line 1", b""))
+        mock_process.returncode = 0
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            new=AsyncMock(return_value=mock_process),
+        ) as mock_exec:
+            snapshot = await pty_manager.capture_snapshot()
+
+        assert snapshot == b"line 1"
+        assert mock_exec.call_args.args == (
+            "tmux",
+            "capture-pane",
+            "-p",
+            "-J",
+            "-S",
+            "-200",
+            "-t",
+            "agent-0001",
+        )
+
+
 class TestScrollHistory:
     """scroll_historyメソッドのテスト。"""
 
