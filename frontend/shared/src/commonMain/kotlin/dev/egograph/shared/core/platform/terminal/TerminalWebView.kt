@@ -3,6 +3,25 @@ package dev.egograph.shared.core.platform.terminal
 import kotlinx.coroutines.flow.Flow
 
 /**
+ * Result of a copy operation
+ */
+sealed interface CopyResult {
+    /**
+     * Copy succeeded with the copied text
+     */
+    data class Success(
+        val text: String,
+    ) : CopyResult
+
+    /**
+     * Copy failed with an error message
+     */
+    data class Error(
+        val message: String,
+    ) : CopyResult
+}
+
+/**
  * Terminal WebView interface for platform-specific implementations
  *
  * Provides WebView functionality for rendering xterm.js terminal
@@ -45,12 +64,21 @@ interface TerminalWebView {
      */
     fun focusInputAtBottom()
 
+    fun setKeyboardVisible(visible: Boolean)
+
     /**
      * Apply terminal color theme.
      *
      * @param darkMode true for dark theme, false for light theme
      */
     fun setTheme(darkMode: Boolean)
+
+    /**
+     * Copy currently visible terminal text to clipboard.
+     *
+     * Results are emitted through the copyResults flow.
+     */
+    fun copyVisibleText()
 
     /**
      * Flow of connection state changes
@@ -63,6 +91,12 @@ interface TerminalWebView {
      * Emits error messages
      */
     val errors: Flow<String>
+
+    /**
+     * Flow of copy operation results
+     * Emits CopyResult.Success or CopyResult.Error
+     */
+    val copyResults: Flow<CopyResult>
 }
 
 /**
