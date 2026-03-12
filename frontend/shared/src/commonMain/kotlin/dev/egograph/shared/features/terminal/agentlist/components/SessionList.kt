@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -90,14 +89,6 @@ fun SessionList(
                 )
                 Spacer(modifier = Modifier.width(dimens.space8))
 
-                Icon(
-                    imageVector = Icons.Default.Terminal,
-                    contentDescription = null,
-                    modifier = Modifier.size(dimens.iconSizeMedium),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.width(dimens.space8))
-
                 Text(
                     text = "TERMINAL SESSIONS",
                     style =
@@ -142,7 +133,7 @@ fun SessionList(
             Spacer(modifier = Modifier.height(dimens.space8))
 
             Text(
-                text = "$sessionCount SESSIONS",
+                text = "$sessionCount ACTIVE SESSIONS",
                 style =
                     MaterialTheme.typography.monospaceLabelSmall.copy(fontWeight = FontWeight.Medium),
                 color = if (sessionCount > 0) extendedColors.success else MaterialTheme.colorScheme.outline,
