@@ -31,11 +31,9 @@ import dev.egograph.shared.core.domain.repository.TerminalRepository
 import dev.egograph.shared.core.platform.PlatformPreferences
 import dev.egograph.shared.core.platform.PlatformPrefsKeys
 import dev.egograph.shared.core.platform.rememberKeyboardState
-import dev.egograph.shared.core.platform.terminal.CopyResult
 import dev.egograph.shared.core.settings.AppTheme
 import dev.egograph.shared.core.settings.ThemeRepository
 import dev.egograph.shared.features.terminal.session.components.SpecialKeysBar
-import dev.egograph.shared.features.terminal.session.components.TerminalCopyFeedback
 import dev.egograph.shared.features.terminal.session.components.TerminalFloatingControlPill
 import dev.egograph.shared.features.terminal.session.components.TerminalView
 import dev.egograph.shared.features.terminal.session.components.rememberTerminalWebView
@@ -66,12 +64,6 @@ class TerminalScreen(
     }
 }
 
-internal fun copyFeedbackMessage(result: CopyResult): String =
-    when (result) {
-        is CopyResult.Success -> "Copied terminal text"
-        is CopyResult.Error -> "Copy failed"
-    }
-
 @Composable
 private fun TerminalContent(
     agentId: String,
@@ -94,7 +86,7 @@ private fun TerminalContent(
     var hasConnectedOnce by remember { mutableStateOf(false) }
     var reconnectAttempts by remember { mutableStateOf(0) }
     var reconnectJob by remember { mutableStateOf<Job?>(null) }
-    var copyFeedbackMessage by remember { mutableStateOf<String?>(null) }
+    var isCopyModeOpen by remember { mutableStateOf(false) }
     val backoff = remember { createTerminalReconnectBackoff() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -191,19 +183,6 @@ private fun TerminalContent(
         }
     }
 
-    LaunchedEffect(webView) {
-        webView.copyResults.collect { result ->
-            copyFeedbackMessage = copyFeedbackMessage(result)
-        }
-    }
-
-    LaunchedEffect(copyFeedbackMessage) {
-        if (copyFeedbackMessage != null) {
-            delay(1800)
-            copyFeedbackMessage = null
-        }
-    }
-
     DisposableEffect(Unit) {
         onDispose {
             reconnectJob?.cancel()
@@ -249,11 +228,6 @@ private fun TerminalContent(
                     .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            copyFeedbackMessage?.let { message ->
-                TerminalCopyFeedback(message = message)
-                Box(modifier = Modifier.height(12.dp))
-            }
-
             if (keyboardState.isVisible) {
                 SpecialKeysBar(
                     onKeyPress = { keySequence -> webView.sendKey(keySequence) },
@@ -267,14 +241,17 @@ private fun TerminalContent(
             TerminalFloatingControlPill(
                 sessionId = agentId,
                 isConnected = connectionState && displayError == null,
-                isKeyboardVisible = keyboardState.isVisible,
                 onBack = { onClose?.invoke() ?: navigator.pop() },
-                onKeyboardToggle = {
-                    webView.setKeyboardVisible(!keyboardState.isVisible)
-                },
-                onCopy = { webView.copyVisibleText() },
+                onCopy = { isCopyModeOpen = true },
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
+    }
+
+    if (isCopyModeOpen) {
+        TerminalCopyModeSheet(
+            agentId = agentId,
+            onDismiss = { isCopyModeOpen = false },
+        )
     }
 }

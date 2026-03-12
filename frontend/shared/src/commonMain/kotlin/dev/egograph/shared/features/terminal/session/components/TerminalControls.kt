@@ -1,7 +1,6 @@
 package dev.egograph.shared.features.terminal.session.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,8 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,23 +42,6 @@ fun TerminalBackButton(
 }
 
 @Composable
-fun TerminalKeyboardToggleButton(
-    isVisible: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier.testTagResourceId(TerminalTestTags.TERMINAL_KEYBOARD_TOGGLE),
-    ) {
-        Icon(
-            imageVector = if (isVisible) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-            contentDescription = if (isVisible) "Hide keyboard" else "Show keyboard",
-        )
-    }
-}
-
-@Composable
 fun TerminalCopyButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -70,7 +50,7 @@ fun TerminalCopyButton(
         onClick = onClick,
         modifier = modifier.testTagResourceId(TerminalTestTags.TERMINAL_COPY_BUTTON),
     ) {
-        Icon(Icons.Default.ContentCopy, contentDescription = "Copy terminal text")
+        Icon(Icons.Default.ContentCopy, contentDescription = "Open copy mode")
     }
 }
 
@@ -78,9 +58,7 @@ fun TerminalCopyButton(
 fun TerminalFloatingControlPill(
     sessionId: String,
     isConnected: Boolean,
-    isKeyboardVisible: Boolean,
     onBack: () -> Unit,
-    onKeyboardToggle: () -> Unit,
     onCopy: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -103,11 +81,7 @@ fun TerminalFloatingControlPill(
         ) {
             TerminalBackButton(onClick = onBack)
             Spacer(modifier = Modifier.width(dimens.space8))
-            Row(
-                modifier = Modifier.widthIn(max = 180.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Row(modifier = Modifier.widthIn(max = 180.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier =
                         Modifier
@@ -124,32 +98,7 @@ fun TerminalFloatingControlPill(
                 )
             }
             Spacer(modifier = Modifier.width(dimens.space8))
-            TerminalKeyboardToggleButton(isVisible = isKeyboardVisible, onClick = onKeyboardToggle)
             TerminalCopyButton(onClick = onCopy)
         }
-    }
-}
-
-@Composable
-fun TerminalCopyFeedback(
-    message: String,
-    modifier: Modifier = Modifier,
-) {
-    val dimens = EgoGraphThemeTokens.dimens
-    val shapes = EgoGraphThemeTokens.shapes
-
-    Box(
-        modifier =
-            modifier
-                .testTagResourceId(TerminalTestTags.TERMINAL_COPY_FEEDBACK)
-                .clip(shapes.radiusMd)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f))
-                .padding(horizontal = dimens.space12, vertical = dimens.space8),
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.surface,
-        )
     }
 }
