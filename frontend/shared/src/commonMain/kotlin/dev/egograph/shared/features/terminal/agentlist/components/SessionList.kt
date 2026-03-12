@@ -29,10 +29,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import dev.egograph.shared.core.domain.model.terminal.Session
 import dev.egograph.shared.core.ui.common.ListStateContent
 import dev.egograph.shared.core.ui.theme.EgoGraphThemeTokens
-import dev.egograph.shared.core.ui.theme.monospaceBodyMedium
 import dev.egograph.shared.core.ui.theme.monospaceLabelSmall
 
 /**
@@ -87,46 +87,53 @@ fun SessionList(
                                 shape = shapes.statusCircle,
                             ),
                 )
+
                 Spacer(modifier = Modifier.width(dimens.space8))
 
                 Text(
                     text = "TERMINAL SESSIONS",
                     style =
-                        MaterialTheme.typography.monospaceBodyMedium.copy(
+                        MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                         ),
                     color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
 
-                Spacer(modifier = Modifier.weight(1f))
-
-                OutlinedButton(
-                    onClick = onRefresh,
-                    enabled = !isLoading,
-                    shape = shapes.radiusXs,
-                    contentPadding = PaddingValues(horizontal = dimens.space8),
-                    modifier = Modifier.height(dimens.space28).widthIn(min = dimens.space48),
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Sync",
-                        modifier = Modifier.size(dimens.iconSizeSmall),
-                    )
-                }
+                    OutlinedButton(
+                        onClick = onRefresh,
+                        enabled = !isLoading,
+                        shape = shapes.radiusXs,
+                        contentPadding = PaddingValues(horizontal = dimens.space8),
+                        modifier = Modifier.height(dimens.space28).widthIn(min = dimens.space48),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Sync",
+                            modifier = Modifier.size(dimens.iconSizeSmall),
+                        )
+                    }
 
-                Spacer(modifier = Modifier.width(dimens.space6))
+                    Spacer(modifier = Modifier.width(dimens.space6))
 
-                OutlinedButton(
-                    onClick = onOpenGatewaySettings,
-                    shape = shapes.radiusXs,
-                    contentPadding = PaddingValues(horizontal = dimens.space8),
-                    modifier = Modifier.height(dimens.space28).widthIn(min = dimens.space48),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        modifier = Modifier.size(dimens.iconSizeSmall),
-                    )
+                    OutlinedButton(
+                        onClick = onOpenGatewaySettings,
+                        shape = shapes.radiusXs,
+                        contentPadding = PaddingValues(horizontal = dimens.space8),
+                        modifier = Modifier.height(dimens.space28).widthIn(min = dimens.space48),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            modifier = Modifier.size(dimens.iconSizeSmall),
+                        )
+                    }
                 }
             }
 

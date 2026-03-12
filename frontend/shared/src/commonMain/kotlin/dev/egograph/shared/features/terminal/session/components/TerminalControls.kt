@@ -21,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.egograph.shared.core.ui.common.testTagResourceId
@@ -68,7 +67,7 @@ fun TerminalFloatingControlPill(
 
     Surface(
         modifier = modifier.testTagResourceId(TerminalTestTags.TERMINAL_STATUS_PILL),
-        color = Color(0xD91A1A1C),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shape = shapes.radiusXl,
         tonalElevation = dimens.space8,

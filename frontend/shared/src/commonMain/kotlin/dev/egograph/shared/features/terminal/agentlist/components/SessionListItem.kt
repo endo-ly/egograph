@@ -8,13 +8,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -27,13 +26,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import dev.egograph.shared.core.domain.model.terminal.Session
 import dev.egograph.shared.core.ui.common.testTagResourceId
@@ -71,8 +68,33 @@ fun SessionListItem(
     val previewLines = previewDisplayLines(session)
     val subtitle = sessionSubtitle(session)
     val previewScrollState = rememberScrollState()
-    val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
+    val cardBackgroundColor = MaterialTheme.colorScheme.surfaceContainer
+    val sessionIdColor = extendedColors.success
+    val previewAccentColor = extendedColors.success.copy(alpha = 0.55f)
+    val cardModifier =
+        modifier
+            .testTagResourceId(TerminalTestTags.SESSION_ITEM)
+            .fillMaxWidth()
+            .clip(shapes.radiusLg)
+            .background(cardBackgroundColor)
+            .border(
+                width = dimens.borderWidthThin,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                shape = shapes.radiusLg,
+            ).clickable(onClick = onClick)
+            .padding(horizontal = dimens.space16, vertical = dimens.space16)
+    val previewBoxModifier =
+        Modifier
+            .testTagResourceId(TerminalTestTags.SESSION_PREVIEW)
+            .fillMaxWidth()
+            .heightIn(max = dimens.space64 + dimens.space12)
+            .clip(shapes.radiusMd)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .border(
+                width = dimens.borderWidthThin,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                shape = shapes.radiusMd,
+            ).padding(start = dimens.space12, end = dimens.space12, top = dimens.space12, bottom = dimens.space10)
     val pulse = rememberInfiniteTransition(label = "sessionIndicatorPulse")
     val pulseAlpha =
         pulse.animateFloat(
@@ -82,21 +104,11 @@ fun SessionListItem(
             label = "sessionIndicatorAlpha",
         )
 
-    Column(
-        modifier =
-            modifier
-                .testTagResourceId(TerminalTestTags.SESSION_ITEM)
-                .fillMaxWidth()
-                .clip(shapes.radiusLg)
-                .background(if (isHovered) Color(0xFF1C1C1F) else Color(0xFF141416))
-                .border(
-                    width = dimens.borderWidthThin,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
-                    shape = shapes.radiusLg,
-                ).hoverable(interactionSource)
-                .clickable(onClick = onClick)
-                .padding(horizontal = dimens.space16, vertical = dimens.space16),
-    ) {
+    LaunchedEffect(previewLines) {
+        previewScrollState.scrollTo(previewScrollState.maxValue)
+    }
+
+    Column(modifier = cardModifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Top,
@@ -115,7 +127,7 @@ fun SessionListItem(
                 Text(
                     text = session.sessionId,
                     style = MaterialTheme.typography.monospaceBody,
-                    color = if (isHovered) extendedColors.success else MaterialTheme.colorScheme.onSurface,
+                    color = sessionIdColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -140,50 +152,32 @@ fun SessionListItem(
 
         Spacer(modifier = Modifier.height(dimens.space12))
 
-        Box(
-            modifier =
-                Modifier
-                    .testTagResourceId(TerminalTestTags.SESSION_PREVIEW)
-                    .fillMaxWidth()
-                    .heightIn(max = dimens.size160)
-                    .clip(shapes.radiusMd)
-                    .background(Color(0xFF050505))
-                    .border(
-                        width = dimens.borderWidthThin,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                        shape = shapes.radiusMd,
-                    ).padding(start = dimens.space12, end = dimens.space12, top = dimens.space12, bottom = dimens.space10),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .clip(shapes.radiusSm)
-                        .background(
-                            if (isHovered) {
-                                extendedColors.success.copy(alpha = 0.5f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
-                            },
-                        ).width(dimens.space4)
-                        .height(dimens.size160 / 4),
-            )
-            Column(
-                modifier =
-                    Modifier
-                        .padding(start = dimens.space8)
-                        .verticalScroll(previewScrollState),
-            ) {
-                previewLines.forEach { line ->
-                    Text(
-                        text = line,
-                        style = MaterialTheme.typography.monospaceLabelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (line != previewLines.last()) {
-                        Spacer(modifier = Modifier.height(dimens.space4))
+        Box(modifier = previewBoxModifier) {
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxHeight()
+                            .clip(shapes.radiusSm)
+                            .background(previewAccentColor)
+                            .width(dimens.space4),
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .padding(start = dimens.space8)
+                            .fillMaxWidth()
+                            .verticalScroll(previewScrollState),
+                ) {
+                    previewLines.forEach { line ->
+                        Text(
+                            text = line,
+                            style = MaterialTheme.typography.monospaceLabelSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (line != previewLines.last()) {
+                            Spacer(modifier = Modifier.height(dimens.space4))
+                        }
                     }
                 }
             }
