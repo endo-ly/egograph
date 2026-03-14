@@ -30,6 +30,12 @@ import dev.egograph.shared.core.ui.theme.EgoGraphThemeTokens
 
 private const val SPECIAL_KEY_COLUMNS = 6
 
+private val SPECIAL_KEY_BUTTON_HEIGHT = 34.dp
+private val SPECIAL_KEY_FONT_SIZE = 12.sp
+private val SPECIAL_KEY_LINE_HEIGHT = 12.sp
+private val SPECIAL_KEY_HORIZONTAL_PADDING = 2.dp
+private val SPECIAL_KEY_ICON_SIZE = 16.dp
+
 private data class TerminalPanelAction(
     val label: String,
     val keySequence: String? = null,
@@ -75,7 +81,6 @@ fun SpecialKeysBar(
             // 上下の境目
             TerminalPanelAction(label = "Tab", keySequence = "\t"),
             TerminalPanelAction(label = "S-Tab", keySequence = "\u001B[Z"),
-            TerminalPanelAction(label = "Ctrl", keySequence = "\u0000"),
             TerminalPanelAction(label = "←", keySequence = "\u001B[D"),
             TerminalPanelAction(label = "↓", keySequence = "\u001B[B"),
             TerminalPanelAction(label = "→", keySequence = "\u001B[C"),
@@ -154,14 +159,14 @@ private fun SpecialPanelButton(
                     } else {
                         Modifier
                     },
-                ).height(34.dp),
+                ).height(SPECIAL_KEY_BUTTON_HEIGHT),
         shape = shapes.radiusSm,
         colors =
             ButtonDefaults.buttonColors(
                 containerColor = containerColor,
                 contentColor = contentColor,
             ),
-        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = SPECIAL_KEY_HORIZONTAL_PADDING, vertical = 0.dp),
     ) {
         if (action.icon != null) {
             Row(
@@ -172,7 +177,7 @@ private fun SpecialPanelButton(
                 Icon(
                     imageVector = action.icon,
                     contentDescription = action.label,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(SPECIAL_KEY_ICON_SIZE),
                 )
             }
         } else {
@@ -180,8 +185,8 @@ private fun SpecialPanelButton(
                 text = action.label,
                 style =
                     MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 10.sp,
-                        lineHeight = 10.sp,
+                        fontSize = SPECIAL_KEY_FONT_SIZE,
+                        lineHeight = SPECIAL_KEY_LINE_HEIGHT,
                     ),
                 textAlign = TextAlign.Center,
                 maxLines = 1,

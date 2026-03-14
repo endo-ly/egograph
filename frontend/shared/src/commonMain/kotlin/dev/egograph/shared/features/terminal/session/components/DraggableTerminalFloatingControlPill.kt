@@ -104,11 +104,9 @@ internal fun DraggableTerminalFloatingControlPill(
                             x = currentPosition.xPx.roundToInt(),
                             y = currentPosition.yPx.roundToInt(),
                         )
-                    }
-                    .onSizeChanged { size ->
+                    }.onSizeChanged { size ->
                         controlSize = size
-                    }
-                    .pointerInput(bounds) {
+                    }.pointerInput(bounds) {
                         if (!bounds.isReady) {
                             return@pointerInput
                         }

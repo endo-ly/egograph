@@ -67,7 +67,9 @@ class AndroidTerminalWebView(
     private val isTerminalReady = AtomicBoolean(false)
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val cssPixelDensity: Float = context.resources.displayMetrics.density.coerceAtLeast(1f)
+    private val cssPixelDensity: Float =
+        context.resources.displayMetrics.density
+            .coerceAtLeast(1f)
     private val touchSlopPx: Float = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
     private val tapMoveTolerancePx: Float = max(MIN_TAP_TOLERANCE_PX, touchSlopPx * 0.25f)
 
