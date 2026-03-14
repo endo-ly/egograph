@@ -1,4 +1,4 @@
-name: OpenCode Review Back
+name: Claude Review Back
 
 on:
   workflow_dispatch:
@@ -18,33 +18,29 @@ jobs:
   review-back:
     timeout-minutes: 30
     concurrency:
-      group: review-back-opencode-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
+      group: review-back-claude-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
       cancel-in-progress: true
-
-    # 手動トリガー or PRコメント/レビューに /oc or /opencode が含まれる場合のみ
     if: |
       github.event_name == 'workflow_dispatch' ||
       (
         !endsWith(github.actor, '[bot]') &&
         !contains(github.event.comment.body || github.event.review.body || '', '<!-- review-back:done -->') &&
         (
-          contains(github.event.comment.body || '', '/oc') ||
-          contains(github.event.comment.body || '', '/opencode') ||
-          contains(github.event.review.body || '', '/oc') ||
-          contains(github.event.review.body || '', '/opencode')
+          contains(github.event.comment.body || '', '@claude') ||
+          contains(github.event.review.body || '', '@claude')
         ) &&
         (
           github.event_name != 'issue_comment' ||
           github.event.issue.pull_request != null
         )
       )
-
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
+      actions: read
       contents: write
       pull-requests: write
       issues: write
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -61,8 +57,6 @@ jobs:
             PR_NUMBER="${{ inputs.pr_number }}"
           elif [ "${{ github.event_name }}" = "issue_comment" ]; then
             PR_NUMBER="${{ github.event.issue.number }}"
-          elif [ "${{ github.event_name }}" = "pull_request_review" ]; then
-            PR_NUMBER="${{ github.event.pull_request.number }}"
           else
             PR_NUMBER="${{ github.event.pull_request.number }}"
           fi
@@ -81,11 +75,14 @@ jobs:
         run: |
           gh pr checkout "${{ steps.pr.outputs.pr_number }}"
 
-      - name: Run OpenCode review-back (GLM-4.7)
-        uses: anomalyco/opencode/github@latest
-        env:
-          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+      - name: Run Claude Code review-back skill
+        uses: anthropics/claude-code-action@v1
         with:
-          model: zai-coding-plan/glm-4.7
-          share: false
-          prompt: "pr-review-back-workflow Skillをロードし、指示に従って作業を進めてください。ここはGithub Action環境のため、ユーザーと対話することはできません"
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          additional_permissions: |
+            actions: read
+          prompt: pr-review-back-workflow
+          claude_args: |
+            --max-turns 20
+            --allowedTools Bash,Read,Edit,Write
+            --append-system-prompt "You are running in GitHub Actions for repository ${{ github.repository }}. Pull request #${{ steps.pr.outputs.pr_number }} is already checked out in the working directory. This environment is non-interactive, so do not wait for user answers."
