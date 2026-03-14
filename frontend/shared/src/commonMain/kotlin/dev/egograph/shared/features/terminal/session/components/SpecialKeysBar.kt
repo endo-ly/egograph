@@ -81,6 +81,7 @@ fun SpecialKeysBar(
             // 上下の境目
             TerminalPanelAction(label = "Tab", keySequence = "\t"),
             TerminalPanelAction(label = "S-Tab", keySequence = "\u001B[Z"),
+            TerminalPanelAction(label = "C-l", keySequence = "\u000C"),
             TerminalPanelAction(label = "←", keySequence = "\u001B[D"),
             TerminalPanelAction(label = "↓", keySequence = "\u001B[B"),
             TerminalPanelAction(label = "→", keySequence = "\u001B[C"),
