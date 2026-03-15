@@ -1,10 +1,12 @@
 package dev.egograph.shared.core.platform.terminal
 
+import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Color
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -32,6 +34,7 @@ private const val TERMINAL_DARK_BACKGROUND = "#1e1e1e"
 private const val TERMINAL_LIGHT_BACKGROUND = "#FFFFFF"
 private const val MIN_TAP_TOLERANCE_PX = 2f
 private const val MIN_VERTICAL_SCROLL_DELTA_PX = 1f
+private const val TERMINAL_WEBVIEW_LOG_TAG = "TerminalWebView"
 
 private enum class TouchDragDirection {
     UNDETERMINED,
@@ -64,6 +67,9 @@ class AndroidTerminalWebView(
     private val isTerminalReady = AtomicBoolean(false)
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val cssPixelDensity: Float =
+        context.resources.displayMetrics.density
+            .coerceAtLeast(1f)
     private val touchSlopPx: Float = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
     private val tapMoveTolerancePx: Float = max(MIN_TAP_TOLERANCE_PX, touchSlopPx * 0.25f)
 
@@ -94,6 +100,14 @@ class AndroidTerminalWebView(
     private fun evaluateJavascript(script: String) {
         terminalWebView.evaluateJavascript(script.trimIndent(), null)
     }
+
+    /**
+     * Android の実ピクセルを WebView/CSS ピクセルへ変換する。
+     *
+     * terminal.html 側の style / clientHeight / scrollTop は CSS px 基準のため、
+     * 端末密度ぶん縮めて渡さないと過大なオフセットになる。
+     */
+    private fun toCssPixels(devicePixels: Float): Float = devicePixels / cssPixelDensity
 
     /**
      * TerminalAPI 呼び出しの共通テンプレート。
@@ -316,6 +330,7 @@ class AndroidTerminalWebView(
      */
     private fun focusInputAtBottomInternal(showKeyboard: Boolean) {
         runOnMainThread {
+            Log.d(TERMINAL_WEBVIEW_LOG_TAG, "focusInputAtBottomInternal(showKeyboard=$showKeyboard)")
             terminalWebView.requestFocus()
             terminalWebView.evaluateJavascript(
                 """
@@ -407,11 +422,23 @@ class AndroidTerminalWebView(
         }
 
     /**
+     * console message 本文をログ向けにマスクする。
+     */
+    private fun maskConsoleMessage(message: String): String = "[REDACTED length=${message.length}]"
+
+    /**
      * WebChromeClient を構築する。
      */
     private fun createTerminalWebChromeClient(): WebChromeClient =
         object : WebChromeClient() {
-            override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean = false
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                Log.d(
+                    TERMINAL_WEBVIEW_LOG_TAG,
+                    "console[${consoleMessage.messageLevel()}] ${maskConsoleMessage(consoleMessage.message())} " +
+                        "@${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}",
+                )
+                return false
+            }
         }
 
     /**
@@ -543,6 +570,28 @@ class AndroidTerminalWebView(
         executeTerminalApiScript("window.TerminalAPI.sendKey('$escapedKey');")
     }
 
+    override fun pasteFromClipboard() {
+        val clipboardText = readClipboardText() ?: return
+        if (clipboardText.isEmpty()) {
+            return
+        }
+
+        sendKey(clipboardText)
+        focusInputAtBottom()
+    }
+
+    override fun setBottomScrollPadding(paddingPx: Float) {
+        val sanitizedPaddingPx = paddingPx.coerceAtLeast(0f)
+        val cssPaddingPx = toCssPixels(sanitizedPaddingPx)
+        Log.d(
+            TERMINAL_WEBVIEW_LOG_TAG,
+            "setBottomScrollPadding(devicePx=$sanitizedPaddingPx, cssPx=$cssPaddingPx, density=$cssPixelDensity)",
+        )
+        executeTerminalApiScript(
+            "window.TerminalAPI.setBottomScrollPadding($cssPaddingPx);",
+        )
+    }
+
     override fun focusInputAtBottom() {
         focusInputAtBottomInternal(showKeyboard = false)
     }
@@ -552,6 +601,19 @@ class AndroidTerminalWebView(
         runOnMainThread {
             terminalWebView.setBackgroundColor(Color.parseColor(backgroundColor))
         }
+    }
+
+    /**
+     * クリップボードからテキストを取得する。
+     */
+    private fun readClipboardText(): String? {
+        val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return null
+        val primaryClip = clipboardManager.primaryClip ?: return null
+        if (primaryClip.itemCount <= 0) {
+            return null
+        }
+
+        return primaryClip.getItemAt(0).coerceToText(context)?.toString()
     }
 
     fun getWebView(): WebView = terminalWebView

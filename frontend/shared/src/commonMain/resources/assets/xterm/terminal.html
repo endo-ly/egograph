@@ -23,6 +23,7 @@
             padding: 0;
             box-sizing: border-box;
             background: #1e1e1e;
+            overflow: hidden;
             touch-action: none;
         }
 
@@ -69,12 +70,13 @@
             var DEFAULT_CELL_HEIGHT = 18.2;
             var MIN_COLS = 20;
             var MAX_COLS = 240;
-            var MIN_ROWS = 12;
+            var MIN_ROWS = 1;
             var MAX_ROWS = 200;
             var MIN_SCROLL_DELTA = 1;
             var SCROLL_DAMPING_FACTOR = 0.5;
             var MAX_SCROLL_LINES = 6;
             var RESIZE_DEBOUNCE_MS = 200;
+            var BOTTOM_FOCUS_SETTLE_FRAMES = 3;
 
             var TERMINAL_THEME = {
                 background: '#1e1e1e',
@@ -91,6 +93,11 @@
             var pointerScrollLastY = null;
             var pointerDragActive = false;
             var viewportListenersBound = false;
+            var requestedBottomGapPx = 0;
+            var appliedBottomScrollPaddingPx = 0;
+            var keepBottomFocusActive = false;
+            var bottomFocusAnimationFrame = 0;
+            var bottomFocusPendingFrames = 0;
             var resizeTimeout = null;
 
             // ===== Bridge 連携 =====
@@ -133,10 +140,120 @@
                 return terminal.element;
             }
 
+            function getViewportElement() {
+                var root = getTerminalRoot();
+                return root ? root.querySelector('.xterm-viewport') : null;
+            }
+
             function focusTerminal() {
                 if (terminal && typeof terminal.focus === 'function') {
                     terminal.focus();
                 }
+            }
+
+            function debugLog(label, payload) {
+                try {
+                    console.log('[TerminalDebug] ' + label + ' ' + JSON.stringify(payload || {}));
+                } catch (err) {
+                    console.log('[TerminalDebug] ' + label);
+                }
+            }
+
+            function getReservedBottomInsetPx() {
+                return requestedBottomGapPx;
+            }
+
+            function applyBottomScrollPadding() {
+                appliedBottomScrollPaddingPx = 0;
+                return 0;
+            }
+
+            function scrollViewportToBottom() {
+                var viewport = getViewportElement();
+                if (!viewport) {
+                    return;
+                }
+                viewport.scrollTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+            }
+
+            function applyVisualBottomOffset() {
+                return 0;
+            }
+
+            function alignTerminalBottom() {
+                if (!terminal) {
+                    return;
+                }
+                applyBottomScrollPadding();
+                if (typeof terminal.scrollToBottom === 'function') {
+                    terminal.scrollToBottom();
+                }
+                scrollViewportToBottom();
+                var visualBottomOffsetPx = applyVisualBottomOffset();
+                debugLog('alignTerminalBottom', {
+                    requestedBottomGapPx: requestedBottomGapPx,
+                    appliedBottomScrollPaddingPx: appliedBottomScrollPaddingPx,
+                    visualBottomOffsetPx: visualBottomOffsetPx,
+                    viewport: (function () {
+                        var viewport = getViewportElement();
+                        return viewport ? {
+                            clientHeight: viewport.clientHeight,
+                            scrollHeight: viewport.scrollHeight,
+                            scrollTop: viewport.scrollTop,
+                        } : null;
+                    })(),
+                    buffer: terminal && terminal.buffer && terminal.buffer.active ? {
+                        cursorY: terminal.buffer.active.cursorY,
+                        baseY: terminal.buffer.active.baseY,
+                        viewportY: terminal.buffer.active.viewportY,
+                        length: terminal.buffer.active.length,
+                    } : null,
+                });
+            }
+
+            function cancelScheduledBottomFocus() {
+                if (bottomFocusAnimationFrame) {
+                    window.cancelAnimationFrame(bottomFocusAnimationFrame);
+                    bottomFocusAnimationFrame = 0;
+                }
+                bottomFocusPendingFrames = 0;
+            }
+
+            function scheduleBottomFocus(frameCount) {
+                if (!keepBottomFocusActive) {
+                    cancelScheduledBottomFocus();
+                    return;
+                }
+
+                bottomFocusPendingFrames = Math.max(bottomFocusPendingFrames, frameCount || 1);
+                if (bottomFocusAnimationFrame) {
+                    return;
+                }
+
+                bottomFocusAnimationFrame = window.requestAnimationFrame(function () {
+                    bottomFocusAnimationFrame = 0;
+
+                    if (!keepBottomFocusActive) {
+                        bottomFocusPendingFrames = 0;
+                        return;
+                    }
+
+                    alignTerminalBottom();
+                    bottomFocusPendingFrames = Math.max(0, bottomFocusPendingFrames - 1);
+
+                    if (bottomFocusPendingFrames > 0) {
+                        scheduleBottomFocus(bottomFocusPendingFrames);
+                    }
+                });
+            }
+
+            function setKeepBottomFocusActive(active) {
+                keepBottomFocusActive = active;
+                if (!active) {
+                    cancelScheduledBottomFocus();
+                    return;
+                }
+                scheduleBottomFocus(BOTTOM_FOCUS_SETTLE_FRAMES);
             }
 
             // キーボード表示時に、入力対象を常に末尾へ寄せる
@@ -144,10 +261,9 @@
                 if (!terminal) {
                     return;
                 }
-                if (typeof terminal.scrollToBottom === 'function') {
-                    terminal.scrollToBottom();
-                }
+                alignTerminalBottom();
                 focusTerminal();
+                scheduleBottomFocus(BOTTOM_FOCUS_SETTLE_FRAMES);
             }
 
             // xterm private API から cell 高さを取得する。
@@ -197,8 +313,12 @@
 
             function estimateTerminalSize() {
                 var cellSize = getCellSize();
-                var cols = Math.floor(window.innerWidth / cellSize.width);
-                var rows = Math.floor(window.innerHeight / cellSize.height);
+                var availableWidth = xtermRender ? xtermRender.clientWidth : window.innerWidth;
+                var rawAvailableHeight = xtermRender ? xtermRender.clientHeight : window.innerHeight;
+                var reservedBottomInsetPx = getReservedBottomInsetPx();
+                var availableHeight = Math.max(cellSize.height, rawAvailableHeight - reservedBottomInsetPx);
+                var cols = Math.floor(availableWidth / cellSize.width);
+                var rows = Math.floor(availableHeight / cellSize.height);
                 return {
                     cols: clamp(cols, MIN_COLS, MAX_COLS),
                     rows: clamp(rows, MIN_ROWS, MAX_ROWS),
@@ -206,13 +326,30 @@
             }
 
             function applyViewportSize() {
+                applyBottomScrollPadding();
                 var size = estimateTerminalSize();
+                var didResize = false;
                 if (
                     terminal &&
                     typeof terminal.resize === 'function' &&
                     (terminal.cols !== size.cols || terminal.rows !== size.rows)
                 ) {
                     terminal.resize(size.cols, size.rows);
+                    didResize = true;
+                }
+                applyBottomScrollPadding();
+                debugLog('applyViewportSize', {
+                    cols: size.cols,
+                    rows: size.rows,
+                    didResize: didResize,
+                    requestedBottomGapPx: requestedBottomGapPx,
+                    appliedBottomScrollPaddingPx: appliedBottomScrollPaddingPx,
+                    visualBottomOffsetPx: applyVisualBottomOffset(),
+                    renderHeight: xtermRender ? xtermRender.clientHeight : null,
+                    reservedBottomInsetPx: getReservedBottomInsetPx(),
+                });
+                if (keepBottomFocusActive) {
+                    scheduleBottomFocus(didResize ? BOTTOM_FOCUS_SETTLE_FRAMES : 1);
                 }
                 return size;
             }
@@ -418,6 +555,30 @@
                     if (typeof terminal.onData === 'function') {
                         terminal.onData(routeInput);
                     }
+                    if (typeof terminal.onRender === 'function') {
+                        terminal.onRender(function () {
+                            applyBottomScrollPadding();
+                            if (keepBottomFocusActive) {
+                                scheduleBottomFocus(1);
+                            }
+                        });
+                    }
+                    if (typeof terminal.onResize === 'function') {
+                        terminal.onResize(function () {
+                            applyBottomScrollPadding();
+                            if (keepBottomFocusActive) {
+                                scheduleBottomFocus(BOTTOM_FOCUS_SETTLE_FRAMES);
+                            }
+                        });
+                    }
+                    if (typeof terminal.onWriteParsed === 'function') {
+                        terminal.onWriteParsed(function () {
+                            applyBottomScrollPadding();
+                            if (keepBottomFocusActive) {
+                                scheduleBottomFocus(1);
+                            }
+                        });
+                    }
                     configureTextareaForMobile(terminal);
                 } catch (err) {
                     terminal = null;
@@ -501,6 +662,25 @@
                 sendKey: function (key) {
                     sendInput(key);
                 },
+                setBottomScrollPadding: function (pixelPadding) {
+                    if (typeof pixelPadding !== 'number' || !isFinite(pixelPadding)) {
+                        return;
+                    }
+                    requestedBottomGapPx = Math.max(0, pixelPadding);
+                    setKeepBottomFocusActive(requestedBottomGapPx > 0);
+                    applyBottomScrollPadding();
+                    var visualBottomOffsetPx = applyVisualBottomOffset();
+                    debugLog('setBottomScrollPadding', {
+                        requestedBottomGapPx: requestedBottomGapPx,
+                        appliedBottomScrollPaddingPx: appliedBottomScrollPaddingPx,
+                        visualBottomOffsetPx: visualBottomOffsetPx,
+                        reservedBottomInsetPx: getReservedBottomInsetPx(),
+                    });
+                    sendResizeToServer();
+                    if (keepBottomFocusActive) {
+                        scheduleBottomFocus(BOTTOM_FOCUS_SETTLE_FRAMES);
+                    }
+                },
                 focusInputAtBottom: function () {
                     focusInputAtBottom();
                 },
@@ -516,6 +696,7 @@
             notifyTerminalReady();
 
             if (ensureTerminal()) {
+                applyBottomScrollPadding();
                 applyViewportSize();
             }
 
