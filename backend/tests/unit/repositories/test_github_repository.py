@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 from pydantic import SecretStr
 
-from backend.infrastructure.repositories.github_repository import GitHubRepository
 from backend.config import R2Config
+from backend.infrastructure.repositories.github_repository import GitHubRepository
 
 
 class TestGitHubRepository:
@@ -26,7 +26,7 @@ class TestGitHubRepository:
             mock_conn_class.return_value = mock_conn
 
             with patch(
-                "backend.infrastructure.database.github_queries._generate_pr_partition_paths",
+                "backend.infrastructure.database.github_queries.build_partition_paths",
                 return_value=[prs_parquet_path],
             ):
                 # Act
@@ -55,7 +55,7 @@ class TestGitHubRepository:
             mock_conn_class.return_value = mock_conn
 
             with patch(
-                "backend.infrastructure.database.github_queries._generate_pr_partition_paths",
+                "backend.infrastructure.database.github_queries.build_partition_paths",
                 return_value=[prs_parquet_path],
             ):
                 # Act
@@ -90,7 +90,7 @@ class TestGitHubRepository:
             mock_conn_class.return_value = mock_conn
 
             with patch(
-                "backend.infrastructure.database.github_queries._generate_commit_partition_paths",
+                "backend.infrastructure.database.github_queries.build_partition_paths",
                 return_value=[commits_parquet_path],
             ):
                 # Act
@@ -119,7 +119,7 @@ class TestGitHubRepository:
             mock_conn_class.return_value = mock_conn
 
             with patch(
-                "backend.infrastructure.database.github_queries._generate_commit_partition_paths",
+                "backend.infrastructure.database.github_queries.build_partition_paths",
                 return_value=[commits_parquet_path],
             ):
                 # Act
@@ -215,11 +215,11 @@ class TestGitHubRepository:
             mock_conn_class.return_value = mock_conn
 
             with patch(
-                "backend.infrastructure.database.github_queries._generate_pr_partition_paths",
+                "backend.infrastructure.database.github_queries.build_partition_paths",
                 return_value=[prs_parquet_path],
             ):
                 with patch(
-                    "backend.infrastructure.database.github_queries._generate_commit_partition_paths",
+                    "backend.infrastructure.database.github_queries._resolve_commit_partition_paths",
                     return_value=[commits_parquet_path],
                 ):
                     # Act
@@ -251,11 +251,11 @@ class TestGitHubRepository:
             mock_conn_class.return_value = mock_conn
 
             with patch(
-                "backend.infrastructure.database.github_queries._generate_pr_partition_paths",
+                "backend.infrastructure.database.github_queries.build_partition_paths",
                 return_value=[prs_parquet_path],
             ):
                 with patch(
-                    "backend.infrastructure.database.github_queries._generate_commit_partition_paths",
+                    "backend.infrastructure.database.github_queries._resolve_commit_partition_paths",
                     return_value=[commits_parquet_path],
                 ):
                     # Act

@@ -6,6 +6,10 @@ from datetime import date
 from typing import Any
 
 import duckdb
+import numpy as np
+
+from backend.config import R2Config
+from backend.infrastructure.database.parquet_paths import build_partition_paths
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +24,7 @@ class GitHubQueryParams:
     master_path: str
     start_date: date
     end_date: date
+    r2_config: R2Config | None = None
 
 
 # Parquetパスパターン
@@ -132,7 +137,40 @@ def _generate_commit_partition_paths(
 ) -> list[str]:
     """指定期間の月パーティションに対応するCommitイベントParquetパスリストを生成します。"""
     return _generate_partition_paths(
-        GITHUB_COMMITS_PARTITION_PATH, bucket, events_path, start_date, end_date, "commit"
+        GITHUB_COMMITS_PARTITION_PATH,
+        bucket,
+        events_path,
+        start_date,
+        end_date,
+        "commit",
+    )
+
+
+def _resolve_pr_partition_paths(params: GitHubQueryParams) -> list[str]:
+    if params.r2_config is not None:
+        return build_partition_paths(
+            params.r2_config,
+            data_domain="events",
+            dataset_path="github/pull_requests",
+            start_date=params.start_date,
+            end_date=params.end_date,
+        )
+    return _generate_pr_partition_paths(
+        params.bucket, params.events_path, params.start_date, params.end_date
+    )
+
+
+def _resolve_commit_partition_paths(params: GitHubQueryParams) -> list[str]:
+    if params.r2_config is not None:
+        return build_partition_paths(
+            params.r2_config,
+            data_domain="events",
+            dataset_path="github/commits",
+            start_date=params.start_date,
+            end_date=params.end_date,
+        )
+    return _generate_commit_partition_paths(
+        params.bucket, params.events_path, params.start_date, params.end_date
     )
 
 
@@ -171,8 +209,6 @@ def _convert_numpy_types(value: Any) -> Any:
     Returns:
         Python標準型に変換された値
     """
-    import numpy as np
-
     if isinstance(value, np.ndarray):
         return value.tolist()
     if isinstance(value, (np.integer, np.int64, np.int32)):
@@ -228,9 +264,7 @@ def get_pull_requests(
             ...
         ]
     """
-    partition_paths = _generate_pr_partition_paths(
-        params.bucket, params.events_path, params.start_date, params.end_date
-    )
+    partition_paths = _resolve_pr_partition_paths(params)
 
     query = """
         SELECT
@@ -323,9 +357,7 @@ def get_commits(
             ...
         ]
     """
-    partition_paths = _generate_commit_partition_paths(
-        params.bucket, params.events_path, params.start_date, params.end_date
-    )
+    partition_paths = _resolve_commit_partition_paths(params)
 
     query = """
         SELECT
@@ -457,7 +489,12 @@ def get_repositories(
         query += " LIMIT ?"
         query_params.append(limit)
 
-    logger.debug("Executing get_repositories: owner=%s, repo=%s, limit=%s", owner, repo, limit)
+    logger.debug(
+        "Executing get_repositories: owner=%s, repo=%s, limit=%s",
+        owner,
+        repo,
+        limit,
+    )
 
     return execute_query(params.conn, query, query_params)
 
@@ -489,12 +526,8 @@ def get_activity_stats(
     Raises:
         ValueError: granularityが無効な場合
     """
-    pr_partition_paths = _generate_pr_partition_paths(
-        params.bucket, params.events_path, params.start_date, params.end_date
-    )
-    commit_partition_paths = _generate_commit_partition_paths(
-        params.bucket, params.events_path, params.start_date, params.end_date
-    )
+    pr_partition_paths = _resolve_pr_partition_paths(params)
+    commit_partition_paths = _resolve_commit_partition_paths(params)
 
     date_format_map = {
         "day": "%Y-%m-%d",
@@ -517,8 +550,14 @@ def get_activity_stats(
                 pr.pr_key,
                 MAX(CASE WHEN pr.action = 'opened' THEN 1 ELSE 0 END) as is_opened,
                 MAX(CASE WHEN pr.action = 'merged' THEN 1 ELSE 0 END) as is_merged,
-                COALESCE(MAX(pr.additions) FILTER (WHERE pr.action = 'merged'), 0) as additions,
-                COALESCE(MAX(pr.deletions) FILTER (WHERE pr.action = 'merged'), 0) as deletions
+                COALESCE(
+                    MAX(pr.additions) FILTER (WHERE pr.action = 'merged'),
+                    0
+                ) as additions,
+                COALESCE(
+                    MAX(pr.deletions) FILTER (WHERE pr.action = 'merged'),
+                    0
+                ) as deletions
             FROM read_parquet(?) pr
             WHERE pr.updated_at_utc::DATE BETWEEN ? AND ?
             GROUP BY period, pr.pr_key
@@ -606,12 +645,8 @@ def get_repo_summary_stats(
             ...
         ]
     """
-    pr_partition_paths = _generate_pr_partition_paths(
-        params.bucket, params.events_path, params.start_date, params.end_date
-    )
-    commit_partition_paths = _generate_commit_partition_paths(
-        params.bucket, params.events_path, params.start_date, params.end_date
-    )
+    pr_partition_paths = _resolve_pr_partition_paths(params)
+    commit_partition_paths = _resolve_commit_partition_paths(params)
 
     query = """
         WITH pr_per_key AS (
@@ -620,8 +655,14 @@ def get_repo_summary_stats(
                 pr.repo,
                 pr.repo_full_name,
                 pr.pr_key,
-                COALESCE(MAX(pr.additions) FILTER (WHERE pr.action = 'merged'), 0) as additions,
-                COALESCE(MAX(pr.deletions) FILTER (WHERE pr.action = 'merged'), 0) as deletions,
+                COALESCE(
+                    MAX(pr.additions) FILTER (WHERE pr.action = 'merged'),
+                    0
+                ) as additions,
+                COALESCE(
+                    MAX(pr.deletions) FILTER (WHERE pr.action = 'merged'),
+                    0
+                ) as deletions,
                 MAX(CASE WHEN pr.action = 'merged' THEN 1 ELSE 0 END) as is_merged
             FROM read_parquet(?) pr
             WHERE pr.updated_at_utc::DATE BETWEEN ? AND ?
@@ -660,8 +701,10 @@ def get_repo_summary_stats(
             COALESCE(pr.prs_total, 0) as prs_total,
             COALESCE(pr.prs_merged, 0) as prs_merged,
             COALESCE(c.commits_total, 0) as commits_total,
-            COALESCE(pr.pr_additions, 0) + COALESCE(c.commit_additions, 0) as total_additions,
-            COALESCE(pr.pr_deletions, 0) + COALESCE(c.commit_deletions, 0) as total_deletions,
+            COALESCE(pr.pr_additions, 0) + COALESCE(c.commit_additions, 0)
+                as total_additions,
+            COALESCE(pr.pr_deletions, 0) + COALESCE(c.commit_deletions, 0)
+                as total_deletions,
             pr.last_pr_updated_at,
             c.last_commit_at
         FROM pr_summary pr

@@ -15,8 +15,8 @@ from backend.infrastructure.database import (
     get_activity_stats,
     get_commits,
     get_pull_requests,
-    get_repositories,
     get_repo_summary_stats,
+    get_repositories,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,10 +70,18 @@ class GitHubRepository:
                 master_path=self.r2_config.master_path,
                 start_date=start_date,
                 end_date=end_date,
+                r2_config=self.r2_config,
             )
-            result = get_pull_requests(params, owner=owner, repo=repo, state=state, limit=limit)
+            result = get_pull_requests(
+                params,
+                owner=owner,
+                repo=repo,
+                state=state,
+                limit=limit,
+            )
             logger.info(
-                "Retrieved pull requests: start_date=%s, end_date=%s, owner=%s, repo=%s, state=%s, limit=%s, count=%s",
+                "Retrieved pull requests: start_date=%s, end_date=%s, "
+                "owner=%s, repo=%s, state=%s, limit=%s, count=%s",
                 start_date,
                 end_date,
                 owner,
@@ -115,10 +123,12 @@ class GitHubRepository:
                 master_path=self.r2_config.master_path,
                 start_date=start_date,
                 end_date=end_date,
+                r2_config=self.r2_config,
             )
             result = get_commits(params, owner=owner, repo=repo, limit=limit)
             logger.info(
-                "Retrieved commits: start_date=%s, end_date=%s, owner=%s, repo=%s, limit=%s, count=%s",
+                "Retrieved commits: start_date=%s, end_date=%s, owner=%s, "
+                "repo=%s, limit=%s, count=%s",
                 start_date,
                 end_date,
                 owner,
@@ -155,6 +165,7 @@ class GitHubRepository:
                 master_path=self.r2_config.master_path,
                 start_date=date.min,
                 end_date=date.max,
+                r2_config=self.r2_config,
             )
             result = get_repositories(params, owner=owner, repo=repo, limit=limit)
             logger.info(
@@ -194,10 +205,12 @@ class GitHubRepository:
                 master_path=self.r2_config.master_path,
                 start_date=start_date,
                 end_date=end_date,
+                r2_config=self.r2_config,
             )
             result = get_activity_stats(params, granularity=granularity)
             logger.info(
-                "Retrieved activity stats: start_date=%s, end_date=%s, granularity=%s, count=%s",
+                "Retrieved activity stats: start_date=%s, end_date=%s, "
+                "granularity=%s, count=%s",
                 start_date,
                 end_date,
                 granularity,
@@ -234,10 +247,16 @@ class GitHubRepository:
                 master_path=self.r2_config.master_path,
                 start_date=start_date,
                 end_date=end_date,
+                r2_config=self.r2_config,
             )
-            result = get_repo_summary_stats(params, owner=owner, repo_name=repo_name)
+            result = get_repo_summary_stats(
+                params,
+                owner=owner,
+                repo_name=repo_name,
+            )
             logger.info(
-                "Retrieved repo summary stats: start_date=%s, end_date=%s, owner=%s, repo=%s, count=%s",
+                "Retrieved repo summary stats: start_date=%s, end_date=%s, "
+                "owner=%s, repo=%s, count=%s",
                 start_date,
                 end_date,
                 owner,

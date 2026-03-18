@@ -57,6 +57,7 @@ class SpotifyRepository:
                 events_path=self.r2_config.events_path,
                 start_date=start_date,
                 end_date=end_date,
+                r2_config=self.r2_config,
             )
             result = get_top_tracks(params, limit)
             logger.info(
@@ -91,6 +92,7 @@ class SpotifyRepository:
                 events_path=self.r2_config.events_path,
                 start_date=start_date,
                 end_date=end_date,
+                r2_config=self.r2_config,
             )
             result = get_listening_stats(params, granularity)
             logger.info(

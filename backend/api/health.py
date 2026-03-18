@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from backend.config import BackendConfig
 from backend.constants import HEALTH_CHECK_LIMIT
 from backend.dependencies import get_config, get_db_connection
-from backend.infrastructure.database import DuckDBConnection, get_parquet_path
+from backend.infrastructure.database import DuckDBConnection, build_dataset_glob
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,11 @@ async def health_check(
     """
     try:
         # DuckDB + R2接続のテスト（軽量なクエリで確認）
-        parquet_path = get_parquet_path(config.r2.bucket_name, config.r2.events_path)
+        parquet_path = build_dataset_glob(
+            config.r2,
+            data_domain="events",
+            dataset_path="spotify/plays",
+        )
 
         with db_connection as conn:
             # COUNT(*)の代わりにLIMIT 1で存在確認のみ実施（高速）

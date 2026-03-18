@@ -166,6 +166,7 @@ class TestBackendConfig:
         assert config.reload is False
         assert config.api_key.get_secret_value() == "custom-key"
         assert config.log_level == "DEBUG"
+        assert config.r2 is None
 
     def test_from_env_missing_r2_raises_error(self):
         """R2設定が不足している場合のエラー。"""
@@ -202,6 +203,8 @@ class TestBackendConfig:
         # Assert: R2のみが設定されることを検証（LLMはデフォルト値で作成される）
         assert config.r2 is not None
         assert config.r2.bucket_name == "test-bucket"
+        assert config.r2.compacted_path == "compacted/"
+        assert config.r2.parquet_source_mode == "prefer_local"
         # LLMConfigは必須フィールドがないため常に作成される（APIキーはNone）
 
     def test_from_env_with_llm_and_r2(self, monkeypatch):
