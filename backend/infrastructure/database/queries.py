@@ -7,10 +7,15 @@ from typing import Any
 
 import duckdb
 
+from backend.config import R2Config
 from backend.constants import (
     DEFAULT_SEARCH_TRACKS_LIMIT,
     DEFAULT_TOP_TRACKS_LIMIT,
     MS_TO_MINUTES_FACTOR,
+)
+from backend.infrastructure.database.parquet_paths import (
+    build_dataset_glob,
+    build_partition_paths,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,6 +30,7 @@ class QueryParams:
     events_path: str
     start_date: date
     end_date: date
+    r2_config: R2Config | None = None
 
 
 # Parquetパスパターン
@@ -91,6 +97,20 @@ def _generate_partition_paths(
     return paths
 
 
+def _resolve_partition_paths(params: QueryParams) -> list[str]:
+    if params.r2_config is not None:
+        return build_partition_paths(
+            params.r2_config,
+            data_domain="events",
+            dataset_path="spotify/plays",
+            start_date=params.start_date,
+            end_date=params.end_date,
+        )
+    return _generate_partition_paths(
+        params.bucket, params.events_path, params.start_date, params.end_date
+    )
+
+
 def execute_query(
     conn: duckdb.DuckDBPyConnection, sql: str, params: list[Any] | None = None
 ) -> list[dict[str, Any]]:
@@ -133,9 +153,7 @@ def get_top_tracks(
             ...
         ]
     """
-    partition_paths = _generate_partition_paths(
-        params.bucket, params.events_path, params.start_date, params.end_date
-    )
+    partition_paths = _resolve_partition_paths(params)
 
     query = """
         SELECT
@@ -194,9 +212,7 @@ def get_listening_stats(
     Raises:
         ValueError: granularityが無効な場合
     """
-    partition_paths = _generate_partition_paths(
-        params.bucket, params.events_path, params.start_date, params.end_date
-    )
+    partition_paths = _resolve_partition_paths(params)
 
     # 粒度に応じた期間フォーマットを選択
     date_format_map = {
@@ -261,7 +277,15 @@ def search_tracks_by_name(
         ]
     """
     # 全期間を対象とするため、ワイルドカードパスを使用
-    parquet_path = get_parquet_path(params.bucket, params.events_path)
+    parquet_path = (
+        build_dataset_glob(
+            params.r2_config,
+            data_domain="events",
+            dataset_path="spotify/plays",
+        )
+        if params.r2_config is not None
+        else get_parquet_path(params.bucket, params.events_path)
+    )
 
     search_pattern = f"%{query}%"
     sql = """

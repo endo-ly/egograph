@@ -14,9 +14,13 @@ from backend.infrastructure.database.github_queries import (
     get_commits,
     get_prs_parquet_path,
     get_pull_requests,
-    get_repositories,
-    get_repos_parquet_path,
     get_repo_summary_stats,
+    get_repos_parquet_path,
+    get_repositories,
+)
+from backend.infrastructure.database.parquet_paths import (
+    build_dataset_glob,
+    build_partition_paths,
 )
 from backend.infrastructure.database.queries import (
     QueryParams,
@@ -38,6 +42,8 @@ __all__ = [
     "get_top_tracks",
     "get_listening_stats",
     "search_tracks_by_name",
+    "build_partition_paths",
+    "build_dataset_glob",
     # GitHub
     "GitHubQueryParams",
     "get_prs_parquet_path",

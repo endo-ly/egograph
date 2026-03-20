@@ -43,7 +43,17 @@ jobs:
         run: |
           uv run python -m ingest.spotify.main
 
-      - name: Verify Parquet Data Integrity (R2)
+      - name: Compact Spotify parquet datasets
+        env:
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          LOG_LEVEL: INFO
+        run: |
+          uv run python -m ingest.spotify.compact
+
+      - name: Verify Compact Parquet Data Integrity (R2)
         if: success()
         env:
           R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
@@ -60,8 +70,6 @@ jobs:
           access_key_id = os.environ["R2_ACCESS_KEY_ID"]
           secret_access_key = os.environ["R2_SECRET_ACCESS_KEY"]
           bucket_name = os.environ["R2_BUCKET_NAME"]
-          events_path = os.environ.get("R2_EVENTS_PATH", "events/")
-
           conn = duckdb.connect(":memory:")
           conn.execute("INSTALL httpfs; LOAD httpfs;")
           conn.execute(f"""
@@ -75,15 +83,21 @@ jobs:
               );
           """)
 
-          parquet_url = f"s3://{bucket_name}/{events_path}spotify/plays/**/*.parquet"
-          print(f"🧐 Querying: {parquet_url}")
+          plays_url = f"s3://{bucket_name}/compacted/events/spotify/plays/**/*.parquet"
+          tracks_url = f"s3://{bucket_name}/compacted/master/spotify/tracks/**/*.parquet"
+          artists_url = f"s3://{bucket_name}/compacted/master/spotify/artists/**/*.parquet"
+          print(f"🧐 Querying: {plays_url}")
 
           try:
-              count = conn.execute(f"SELECT COUNT(*) FROM read_parquet('{parquet_url}')").fetchone()[0]
-              latest = conn.execute(f"SELECT MAX(played_at_utc) FROM read_parquet('{parquet_url}')").fetchone()[0]
+              count = conn.execute(f"SELECT COUNT(*) FROM read_parquet('{plays_url}')").fetchone()[0]
+              latest = conn.execute(f"SELECT MAX(played_at_utc) FROM read_parquet('{plays_url}')").fetchone()[0]
+              track_count = conn.execute(f"SELECT COUNT(*) FROM read_parquet('{tracks_url}')").fetchone()[0]
+              artist_count = conn.execute(f"SELECT COUNT(*) FROM read_parquet('{artists_url}')").fetchone()[0]
 
-              print(f"✅ Total plays in R2: {count}")
-              print(f"✅ Latest play in R2: {latest}")
+              print(f"✅ Total compacted plays in R2: {count}")
+              print(f"✅ Latest compacted play in R2: {latest}")
+              print(f"✅ Total compacted tracks in R2: {track_count}")
+              print(f"✅ Total compacted artists in R2: {artist_count}")
           except Exception as e:
               print(f"⚠️ Verification failed or no data: {e}")
               # 初回実行時はデータがない可能性があるため、エラーにはせず警告に留める

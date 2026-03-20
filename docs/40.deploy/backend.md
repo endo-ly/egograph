@@ -114,7 +114,7 @@ DuckDBは標準ではローカルファイルしか読み込めません。
 
 - HTTP/HTTPS経由でリモートのファイルを読み込む
 - S3互換ストレージ（R2、AWS S3、MinIOなど）に直接アクセスする
-- 読み込んだファイルをローカルに保存せず、メモリ上でクエリできる
+- compacted mirror 未同期時に R2 compacted parquet へフォールバックできる
 
 ```bash
 uv run python -c "import duckdb; conn = duckdb.connect(); conn.execute('INSTALL httpfs;'); conn.execute('LOAD httpfs;'); print('httpfs installed successfully')"
@@ -130,6 +130,8 @@ uv run python -c "import duckdb; conn = duckdb.connect(); print(conn.execute(\"S
 
 systemdで常駐化し、障害時は自動復旧させる。
 `WorkingDirectory` と `.env` のパスは固定で運用する。
+backend は local mirror を優先して compacted parquet を読み込む。
+起動前に compacted mirror を同期するため、`ExecStartPre` を追加する。
 `/etc/systemd/system/egograph-backend.service`:
 
 作成と編集:
@@ -149,6 +151,8 @@ Type=simple
 WorkingDirectory=/opt/egograph/repo
 EnvironmentFile=/opt/egograph/repo/backend/.env
 Environment=USE_ENV_FILE=false
+Environment=LOCAL_PARQUET_ROOT=/opt/egograph/data/parquet
+ExecStartPre=/root/.local/bin/uv run python backend/scripts/sync_compacted_parquet.py --root /opt/egograph/data/parquet
 ExecStart=/root/.local/bin/uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=10
@@ -172,6 +176,88 @@ sudo systemctl daemon-reload
 sudo systemctl enable egograph-backend
 sudo systemctl start egograph-backend
 sudo systemctl status egograph-backend
+```
+
+### 5.1 parquet sync service
+
+local mirror の更新は backend 本体とは分けて `systemd` で管理する。
+`egograph-backend.service` は起動前に1回同期し、定期同期は別 service + timer で実行する。
+
+`/etc/systemd/system/egograph-parquet-sync.service`:
+
+```ini
+[Unit]
+Description=EgoGraph Parquet Sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/egograph/repo
+EnvironmentFile=/opt/egograph/repo/backend/.env
+Environment=USE_ENV_FILE=false
+Environment=LOCAL_PARQUET_ROOT=/opt/egograph/data/parquet
+ExecStart=/usr/bin/flock -n /tmp/egograph-sync.lock /root/.local/bin/uv run python backend/scripts/sync_compacted_parquet.py --root /opt/egograph/data/parquet
+User=root
+Group=root
+```
+
+作成:
+
+```bash
+sudo touch /etc/systemd/system/egograph-parquet-sync.service
+sudo nano /etc/systemd/system/egograph-parquet-sync.service
+```
+
+手動実行確認:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start egograph-parquet-sync
+sudo systemctl status egograph-parquet-sync
+```
+
+### 5.2 parquet sync timer
+
+ingest は 1 日数回なので、local mirror の定期同期は 6 時間ごとで十分とする。
+
+`/etc/systemd/system/egograph-parquet-sync.timer`:
+
+```ini
+[Unit]
+Description=Run EgoGraph Parquet Sync every 6 hours
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=6h
+Unit=egograph-parquet-sync.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+作成:
+
+```bash
+sudo touch /etc/systemd/system/egograph-parquet-sync.timer
+sudo nano /etc/systemd/system/egograph-parquet-sync.timer
+```
+
+有効化:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable egograph-parquet-sync.timer
+sudo systemctl start egograph-parquet-sync.timer
+sudo systemctl list-timers --all | grep egograph-parquet-sync
+```
+
+ログ確認:
+
+```bash
+journalctl -u egograph-parquet-sync.service -f
+journalctl -u egograph-parquet-sync.timer -f
 ```
 
 ## 6. GitHub Actions で main をデプロイ

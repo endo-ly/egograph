@@ -10,14 +10,13 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 import backend.dependencies as deps
-from backend.config import BackendConfig, LLMConfig
+from backend.config import BackendConfig, LLMConfig, R2Config
 from backend.infrastructure.database import (
     ChatDuckDBConnection,
     chat_connection,
     create_chat_tables,
 )
 from backend.main import create_app
-from backend.config import R2Config
 
 # ========================================
 # 環境変数クリア（テスト用）
@@ -56,6 +55,8 @@ def mock_r2_config():
         bucket_name="test-bucket",
         raw_path="raw/",
         events_path="events/",
+        master_path="master/",
+        local_parquet_root=None,
     )
 
 

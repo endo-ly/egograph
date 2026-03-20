@@ -166,6 +166,7 @@ class TestBackendConfig:
         assert config.reload is False
         assert config.api_key.get_secret_value() == "custom-key"
         assert config.log_level == "DEBUG"
+        assert config.r2 is None
 
     def test_from_env_missing_r2_raises_error(self):
         """R2設定が不足している場合のエラー。"""

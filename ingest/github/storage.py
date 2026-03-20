@@ -11,6 +11,14 @@ import boto3
 import pandas as pd
 from botocore.exceptions import ClientError
 
+from ingest.compaction import (
+    COMPACTED_ROOT,
+    build_compacted_key,
+    compact_records,
+    dataframe_to_parquet_bytes,
+    read_parquet_records_from_prefix,
+)
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_STATE_KEY = "state/github_worklog_ingest_state.json"
@@ -49,6 +57,7 @@ class GitHubWorklogStorage:
         self.raw_path = _normalize_path(raw_path)
         self.events_path = _normalize_path(events_path)
         self.master_path = _normalize_path(master_path)
+        self.compacted_path = COMPACTED_ROOT
 
         self.s3 = boto3.client(
             "s3",
@@ -457,3 +466,44 @@ class GitHubWorklogStorage:
             logger.info("Saved ingest state to %s", key)
         except Exception:
             logger.exception("Failed to save ingest state")
+
+    def compact_month(
+        self,
+        dataset_path: str,
+        year: int,
+        month: int,
+        dedupe_key: str,
+        sort_by: str | None = None,
+    ) -> str | None:
+        """指定月のGitHubイベントParquetをcompact版として保存する。"""
+        source_prefix = (
+            f"{self.events_path}{dataset_path}/"
+            f"year={year}/month={month:02d}/"
+        )
+        records = read_parquet_records_from_prefix(
+            self.s3, self.bucket_name, source_prefix
+        )
+        if not records:
+            logger.info("No parquet records found for compaction: %s", source_prefix)
+            return None
+
+        compacted_df = compact_records(records, dedupe_key=dedupe_key, sort_by=sort_by)
+        key = build_compacted_key(
+            self.compacted_path,
+            data_domain="events",
+            dataset_path=dataset_path,
+            year=year,
+            month=month,
+        )
+        try:
+            self.s3.put_object(
+                Bucket=self.bucket_name,
+                Key=key,
+                Body=dataframe_to_parquet_bytes(compacted_df),
+                ContentType="application/octet-stream",
+            )
+        except ClientError:
+            logger.exception("Failed to save compacted parquet to %s", key)
+            return None
+        logger.info("Saved compacted parquet to %s", key)
+        return key

@@ -126,3 +126,29 @@ class TestSpotifyStorage(unittest.TestCase):
             self.assertTrue(call_args["Key"].endswith(".parquet"))
             self.assertEqual(call_args["ContentType"], "application/octet-stream")
             self.assertIsNotNone(key)
+
+    def test_compact_month_for_events_saves_fixed_key(self):
+        data = [{"play_id": "play_1", "track_name": "Song A"}]
+
+        with patch(
+            "ingest.spotify.storage.read_parquet_records_from_prefix",
+            return_value=data,
+        ):
+            with patch(
+                "ingest.spotify.storage.dataframe_to_parquet_bytes",
+                return_value=b"x",
+            ):
+                key = self.storage.compact_month(
+                    data_domain="events",
+                    dataset_path="spotify/plays",
+                    year=2024,
+                    month=1,
+                    dedupe_key="play_id",
+                )
+
+        call_args = self.mock_s3.put_object.call_args[1]
+        self.assertEqual(
+            call_args["Key"],
+            "compacted/events/spotify/plays/year=2024/month=01/data.parquet",
+        )
+        self.assertEqual(key, call_args["Key"])

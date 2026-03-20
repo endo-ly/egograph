@@ -24,6 +24,7 @@ class R2Config(BaseModel):
     raw_path: str = "raw/"
     events_path: str = "events/"
     master_path: str = "master/"
+    local_parquet_root: str | None = None
 
 
 PROVIDERS_CONFIG = {
@@ -203,6 +204,7 @@ class R2Settings(BaseSettings):
     raw_path: str = Field("raw/", alias="R2_RAW_PATH")
     events_path: str = Field("events/", alias="R2_EVENTS_PATH")
     master_path: str = Field("master/", alias="R2_MASTER_PATH")
+    local_parquet_root: str | None = Field(None, alias="LOCAL_PARQUET_ROOT")
 
     def to_config(self) -> R2Config:
         return R2Config(
@@ -213,4 +215,5 @@ class R2Settings(BaseSettings):
             raw_path=self.raw_path,
             events_path=self.events_path,
             master_path=self.master_path,
+            local_parquet_root=self.local_parquet_root,
         )
