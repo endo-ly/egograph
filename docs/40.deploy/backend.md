@@ -152,7 +152,7 @@ WorkingDirectory=/opt/egograph/repo
 EnvironmentFile=/opt/egograph/repo/backend/.env
 Environment=USE_ENV_FILE=false
 Environment=LOCAL_PARQUET_ROOT=/opt/egograph/data/parquet
-ExecStartPre=/root/.local/bin/uv run python backend/scripts/sync_compacted_parquet.py --root /opt/egograph/data/parquet
+ExecStartPre=/usr/bin/flock -n /tmp/egograph-sync.lock /root/.local/bin/uv run python -m backend.scripts.sync_compacted_parquet --root /opt/egograph/data/parquet
 ExecStart=/root/.local/bin/uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=10
@@ -182,6 +182,7 @@ sudo systemctl status egograph-backend
 
 local mirror の更新は backend 本体とは分けて `systemd` で管理する。
 `egograph-backend.service` は起動前に1回同期し、定期同期は別 service + timer で実行する。
+`backend/scripts/...` のようなファイル直接実行ではなく、module 実行を使う。
 
 `/etc/systemd/system/egograph-parquet-sync.service`:
 
@@ -197,7 +198,7 @@ WorkingDirectory=/opt/egograph/repo
 EnvironmentFile=/opt/egograph/repo/backend/.env
 Environment=USE_ENV_FILE=false
 Environment=LOCAL_PARQUET_ROOT=/opt/egograph/data/parquet
-ExecStart=/usr/bin/flock -n /tmp/egograph-sync.lock /root/.local/bin/uv run python backend/scripts/sync_compacted_parquet.py --root /opt/egograph/data/parquet
+ExecStart=/usr/bin/flock -n /tmp/egograph-sync.lock /root/.local/bin/uv run python -m backend.scripts.sync_compacted_parquet --root /opt/egograph/data/parquet
 User=root
 Group=root
 ```
@@ -215,6 +216,7 @@ sudo nano /etc/systemd/system/egograph-parquet-sync.service
 sudo systemctl daemon-reload
 sudo systemctl start egograph-parquet-sync
 sudo systemctl status egograph-parquet-sync
+journalctl -u egograph-parquet-sync.service -n 100 --no-pager
 ```
 
 ### 5.2 parquet sync timer
