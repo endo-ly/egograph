@@ -1,9 +1,18 @@
 export type BrowserId = "edge" | "brave" | "chrome";
+const VALID_BROWSER_IDS: readonly BrowserId[] = ["edge", "brave", "chrome"];
+
+export interface DraftExtensionSettings {
+  serverUrl: string;
+  xApiKey: string;
+  browserId: BrowserId | "";
+  deviceId: string;
+  profile: string;
+}
 
 export interface ExtensionSettings {
   serverUrl: string;
   xApiKey: string;
-  browserId: BrowserId | "";
+  browserId: BrowserId;
   deviceId: string;
   profile: string;
 }
@@ -46,13 +55,18 @@ export interface SyncNowMessage {
 }
 
 export function isCompleteSettings(
-  settings: Partial<ExtensionSettings>
+  settings: Partial<DraftExtensionSettings>
 ): settings is ExtensionSettings {
-  return Boolean(
-    settings.serverUrl &&
-      settings.xApiKey &&
-      settings.browserId &&
-      settings.deviceId &&
-      settings.profile
+  return (
+    typeof settings.serverUrl === "string" &&
+    settings.serverUrl.length > 0 &&
+    typeof settings.xApiKey === "string" &&
+    settings.xApiKey.length > 0 &&
+    typeof settings.deviceId === "string" &&
+    settings.deviceId.length > 0 &&
+    typeof settings.profile === "string" &&
+    settings.profile.length > 0 &&
+    typeof settings.browserId === "string" &&
+    VALID_BROWSER_IDS.includes(settings.browserId as BrowserId)
   );
 }

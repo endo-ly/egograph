@@ -189,7 +189,13 @@ def _compact_browser_history(
     )
     for year, month in months:
         try:
-            storage.compact_month(year=year, month=month)
+            storage.compact_month(
+                dataset_path=dataset.dataset_path,
+                year=year,
+                month=month,
+                dedupe_key=dataset.dedupe_key,
+                sort_by=dataset.sort_by,
+            )
         except Exception as exc:
             logger.exception(
                 "Bootstrap browser_history compaction failed: "

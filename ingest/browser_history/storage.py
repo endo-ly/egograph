@@ -43,11 +43,13 @@ class BrowserHistoryStorage:
         raw_path: str = "raw/",
         events_path: str = "events/",
         master_path: str = "master/",
+        state_path: str = "state/",
     ):
         self.bucket_name = bucket_name
         self.raw_path = _normalize_path(raw_path)
         self.events_path = _normalize_path(events_path)
         self.master_path = _normalize_path(master_path)
+        self.state_path = _normalize_path(state_path)
         self.compacted_path = COMPACTED_ROOT
         self.s3 = boto3.client(
             "s3",
@@ -60,7 +62,7 @@ class BrowserHistoryStorage:
     def build_state_key(self, source_device: str, browser: str, profile: str) -> str:
         """state JSON キーを返す。"""
         return (
-            "state/browser_history/"
+            f"{self.state_path}browser_history/"
             f"{_key_part(source_device)}/{_key_part(browser)}/{_key_part(profile)}.json"
         )
 
@@ -172,30 +174,40 @@ class BrowserHistoryStorage:
         source_prefix = (
             f"{self.events_path}{dataset_path}/year={year}/month={month:02d}/"
         )
-        records = read_parquet_records_from_prefix(
-            self.s3,
-            self.bucket_name,
-            source_prefix,
-        )
-        if not records:
-            return None
-
-        compacted_df = compact_records(records, dedupe_key=dedupe_key, sort_by=sort_by)
-        key = build_compacted_key(
-            self.compacted_path,
-            data_domain="events",
-            dataset_path=dataset_path,
-            year=year,
-            month=month,
-        )
         try:
+            records = read_parquet_records_from_prefix(
+                self.s3,
+                self.bucket_name,
+                source_prefix,
+            )
+            if not records:
+                return None
+
+            compacted_df = compact_records(
+                records,
+                dedupe_key=dedupe_key,
+                sort_by=sort_by,
+            )
+            key = build_compacted_key(
+                self.compacted_path,
+                data_domain="events",
+                dataset_path=dataset_path,
+                year=year,
+                month=month,
+            )
             self.s3.put_object(
                 Bucket=self.bucket_name,
                 Key=key,
                 Body=dataframe_to_parquet_bytes(compacted_df),
                 ContentType="application/octet-stream",
             )
-        except ClientError:
-            logger.exception("Failed to save compacted browser history parquet")
+        except Exception:
+            logger.exception(
+                "Failed to compact browser history parquet: "
+                "dataset=%s year=%d month=%02d",
+                dataset_path,
+                year,
+                month,
+            )
             return None
         return key

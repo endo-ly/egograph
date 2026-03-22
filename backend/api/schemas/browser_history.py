@@ -31,7 +31,7 @@ class BrowserHistoryIngestRequest(BaseModel):
     browser: Literal["edge", "brave", "chrome"]
     profile: str = Field(min_length=1)
     synced_at: datetime
-    items: list[BrowserHistoryItemRequest]
+    items: list[BrowserHistoryItemRequest] = Field(max_length=1000)
 
 
 class BrowserHistoryIngestResponse(BaseModel):

@@ -50,6 +50,19 @@ class TestBrowserHistoryStorage:
 
         assert key == "state/browser_history/home%20pc/edge/Profile%201.json"
 
+    def test_build_state_key_uses_custom_state_path(self):
+        storage = BrowserHistoryStorage(
+            endpoint_url="http://test-endpoint",
+            access_key_id="test-key",
+            secret_access_key="test-secret",
+            bucket_name="test-bucket",
+            state_path="custom-state/",
+        )
+
+        key = storage.build_state_key("home pc", "edge", "Profile 1")
+
+        assert key == "custom-state/browser_history/home%20pc/edge/Profile%201.json"
+
     def test_get_state_returns_none_on_missing_key(self):
         self.mock_s3.get_object.side_effect = ClientError(
             {"Error": {"Code": "NoSuchKey"}},
@@ -82,6 +95,9 @@ class TestBrowserHistoryStorage:
             return_value=[
                 {"event_id": "e1", "ingested_at_utc": "2026-03-22T12:00:00Z"}
             ],
+        ), patch(
+            "ingest.browser_history.storage.compact_records",
+            return_value=MagicMock(),
         ), patch(
             "ingest.browser_history.storage.dataframe_to_parquet_bytes",
             return_value=b"x",

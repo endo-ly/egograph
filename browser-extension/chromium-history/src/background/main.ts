@@ -13,7 +13,7 @@ function registerListeners(): void {
     }
 
     void runConfiguredSync()
-      .then(() => sendResponse({ ok: true }))
+      .then((result) => sendResponse(result))
       .catch((error: unknown) =>
         sendResponse({
           ok: false,

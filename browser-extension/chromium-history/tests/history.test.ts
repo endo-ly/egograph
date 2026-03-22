@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { INITIAL_SYNC_LIMIT, collectHistoryItems } from "../src/background/history.js";
+import {
+  INCREMENTAL_SEARCH_PAGE_SIZE,
+  INITIAL_SYNC_LIMIT,
+  collectHistoryItems
+} from "../src/background/history.js";
 
 function makeHistoryApi(visitCount: number) {
   return {
@@ -26,7 +30,11 @@ function makeHistoryApi(visitCount: number) {
 
 describe("history collection", () => {
   it("caps the first sync to 1000 visits", async () => {
-    const items = await collectHistoryItems(undefined, makeHistoryApi(1200));
+    const items = await collectHistoryItems(
+      undefined,
+      "2026-03-22T13:00:00.000Z",
+      makeHistoryApi(1200)
+    );
 
     expect(items).toHaveLength(INITIAL_SYNC_LIMIT);
   });
@@ -67,9 +75,50 @@ describe("history collection", () => {
       }
     };
 
-    const items = await collectHistoryItems("2026-03-22T12:15:00.000Z", historyApi);
+    const items = await collectHistoryItems(
+      "2026-03-22T12:15:00.000Z",
+      "2026-03-22T12:40:00.000Z",
+      historyApi
+    );
 
     expect(items).toHaveLength(1);
     expect(items[0]?.url).toBe("https://example.com/new");
+  });
+
+  it("paginates incremental history queries until the window is drained", async () => {
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Array.from({ length: INCREMENTAL_SEARCH_PAGE_SIZE }, (_, index) => ({
+          url: `https://example.com/${index}`,
+          title: `Example ${index}`,
+          visitCount: 1,
+          lastVisitTime: Date.parse("2026-03-22T12:00:00Z") - index
+        }))
+      )
+      .mockResolvedValueOnce([
+        {
+          url: "https://example.com/final",
+          title: "Final",
+          visitCount: 1,
+          lastVisitTime: Date.parse("2026-03-22T10:00:00Z")
+        }
+      ]);
+    const getVisits = vi.fn(async ({ url }: { url: string }) => [
+      {
+        visitId: url.length,
+        visitTime: Date.parse("2026-03-22T12:30:00Z"),
+        transition: "link"
+      }
+    ]) as unknown as typeof chrome.history.getVisits;
+
+    const items = await collectHistoryItems(
+      "2026-03-22T09:00:00.000Z",
+      "2026-03-22T13:00:00.000Z",
+      { search, getVisits }
+    );
+
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(items.length).toBe(INCREMENTAL_SEARCH_PAGE_SIZE + 1);
   });
 });

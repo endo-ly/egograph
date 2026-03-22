@@ -1,7 +1,6 @@
 import { postBrowserHistory } from "../shared/api.js";
 import type {
   BrowserHistoryPayload,
-  BrowserId,
   ExtensionSettings,
   SyncOutcome
 } from "../shared/types.js";
@@ -24,6 +23,8 @@ export interface SyncDependencies {
   createSyncId: () => string;
   now: () => Date;
 }
+
+const MAX_ITEMS_PER_REQUEST = 1000;
 
 function randomUuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -52,11 +53,23 @@ export function buildPayload(
   return {
     sync_id: syncId,
     source_device: settings.deviceId,
-    browser: settings.browserId as BrowserId,
+    browser: settings.browserId,
     profile: settings.profile,
     synced_at: now.toISOString(),
     items
   };
+}
+
+function chunkItems<T>(items: T[], chunkSize: number): T[][] {
+  if (items.length === 0) {
+    return [[]];
+  }
+
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize));
+  }
+  return chunks;
 }
 
 export async function runBrowserHistorySync(
@@ -67,21 +80,48 @@ export async function runBrowserHistorySync(
     return { ok: false, message: "Incomplete settings" };
   }
 
-  const lastSuccessfulSyncAt = await deps.getLastSuccessfulSyncAt();
-  const items = await deps.collectHistoryItems(lastSuccessfulSyncAt);
-  const now = deps.now();
-  const payload = buildPayload(settings, items, now, deps.createSyncId());
-  const result = await deps.postBrowserHistory(settings.serverUrl, settings.xApiKey, payload);
+  try {
+    const lastSuccessfulSyncAt = await deps.getLastSuccessfulSyncAt();
+    const syncStartedAt = deps.now();
+    const items = await deps.collectHistoryItems(
+      lastSuccessfulSyncAt,
+      syncStartedAt.toISOString()
+    );
+    const batches = chunkItems(items, MAX_ITEMS_PER_REQUEST);
+    let accepted = 0;
 
-  if (result.ok) {
-    await deps.setSuccessfulSync(now.toISOString());
-    return result;
+    for (const batch of batches) {
+      const payload = buildPayload(
+        settings,
+        batch,
+        syncStartedAt,
+        deps.createSyncId()
+      );
+      const result = await deps.postBrowserHistory(
+        settings.serverUrl,
+        settings.xApiKey,
+        payload
+      );
+
+      if (!result.ok) {
+        await deps.setFailedSync(result.message ?? "Sync failed");
+        return result;
+      }
+
+      accepted += result.accepted ?? batch.length;
+    }
+
+    await deps.setSuccessfulSync(syncStartedAt.toISOString());
+    return { ok: true, accepted, status: 200 };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    await deps.setFailedSync(message);
+    return { ok: false, message };
   }
-
-  await deps.setFailedSync(result.message ?? "Sync failed");
-  return result;
 }
 
-export async function runConfiguredSync(): Promise<void> {
-  await runBrowserHistorySync();
+export function runConfiguredSync(): Promise<SyncOutcome> {
+  return runBrowserHistorySync();
 }
+
+export { MAX_ITEMS_PER_REQUEST };
