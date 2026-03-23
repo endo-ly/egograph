@@ -1,6 +1,7 @@
 import type { BrowserHistoryPayloadItem } from "../shared/types.js";
 
 const INITIAL_SYNC_LIMIT = 50000;
+const VISIT_FETCH_CONCURRENCY = 25;
 const INCREMENTAL_SEARCH_PAGE_SIZE = 10000;
 
 export interface HistoryApi {
@@ -75,6 +76,27 @@ async function searchHistoryItems(
   return allItems;
 }
 
+async function mapWithConcurrencyLimit<T, TResult>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<TResult>
+): Promise<TResult[]> {
+  const results = new Array<TResult>(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex] as T);
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
+
 export async function collectHistoryItems(
   lastSuccessfulSyncAt?: string,
   syncedBeforeAt?: string,
@@ -94,8 +116,10 @@ export async function collectHistoryItems(
     isInitialSync
   );
 
-  const collected = await Promise.all(
-    historyItems.map((item) => collectVisitsForItem(resolvedHistoryApi, item))
+  const collected = await mapWithConcurrencyLimit(
+    historyItems,
+    VISIT_FETCH_CONCURRENCY,
+    (item) => collectVisitsForItem(resolvedHistoryApi, item)
   );
 
   const flattened = collected
@@ -114,4 +138,4 @@ export async function collectHistoryItems(
   return isInitialSync ? flattened.slice(0, INITIAL_SYNC_LIMIT) : flattened;
 }
 
-export { INCREMENTAL_SEARCH_PAGE_SIZE, INITIAL_SYNC_LIMIT, toIsoString };
+export { INCREMENTAL_SEARCH_PAGE_SIZE, INITIAL_SYNC_LIMIT, VISIT_FETCH_CONCURRENCY, toIsoString };

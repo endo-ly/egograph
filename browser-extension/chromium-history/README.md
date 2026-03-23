@@ -25,7 +25,7 @@ Chromium MV3 拡張機能。Edge / Brave / Chrome のブラウザ履歴を EgoGr
 
 ## アーキテクチャ
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Browser Extension                           │
 ├─────────────────────────────────────────────────────────────────┤
@@ -132,7 +132,7 @@ npm run build
 
 ### カーソル管理
 
-```
+```text
 ┌──────────────┐     成功        ┌──────────────────┐
 │   同期実行   │ ─────────────► │ カーソル更新      │
 │              │    200 OK      │ (lastSyncedAt)   │
@@ -155,7 +155,7 @@ npm run build
 
 ### リクエスト
 
-```
+```http
 POST {serverUrl}/v1/ingest/browser-history
 Content-Type: application/json
 X-API-Key: {xApiKey}
@@ -232,7 +232,7 @@ X-API-Key: {xApiKey}
 
 ### プロジェクト構成
 
-```
+```text
 chromium-history/
 ├── manifest.json           # 拡張機能マニフェスト (MV3)
 ├── package.json            # npm スクリプトと依存関係
