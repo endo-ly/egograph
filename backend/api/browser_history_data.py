@@ -27,6 +27,31 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/data/browser-history", tags=["data", "browser_history"])
 
 
+def _build_query_params(
+    db_connection: duckdb.DuckDBPyConnection,
+    config: BackendConfig,
+    start_date: date,
+    end_date: date,
+    limit: int,
+) -> tuple[BrowserHistoryQueryParams, int]:
+    """共通のクエリパラメータと limit を検証して構築する。"""
+    try:
+        start, end = validate_date_range(start_date, end_date)
+        validated_limit = validate_limit(limit, max_value=MAX_LIMIT)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    params = BrowserHistoryQueryParams(
+        conn=db_connection,
+        bucket=config.r2.bucket_name,
+        events_path=config.r2.events_path,
+        start_date=start,
+        end_date=end,
+        r2_config=config.r2,
+    )
+    return params, validated_limit
+
+
 @router.get("/page-views", response_model=list[PageViewResponse])
 def get_page_views_endpoint(
     start_date: date = Query(..., description="開始日（YYYY-MM-DD）"),
@@ -44,19 +69,12 @@ def get_page_views_endpoint(
     _: None = Depends(verify_api_key),
 ):
     """指定期間の page view 一覧を取得する。"""
-    try:
-        start, end = validate_date_range(start_date, end_date)
-        validated_limit = validate_limit(limit, max_value=MAX_LIMIT)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    params = BrowserHistoryQueryParams(
-        conn=db_connection,
-        bucket=config.r2.bucket_name,
-        events_path=config.r2.events_path,
-        start_date=start,
-        end_date=end,
-        r2_config=config.r2,
+    params, validated_limit = _build_query_params(
+        db_connection,
+        config,
+        start_date,
+        end_date,
+        limit,
     )
     return get_page_views(
         params,
@@ -83,19 +101,12 @@ def get_top_domains_endpoint(
     _: None = Depends(verify_api_key),
 ):
     """指定期間の domain ランキングを取得する。"""
-    try:
-        start, end = validate_date_range(start_date, end_date)
-        validated_limit = validate_limit(limit, max_value=MAX_LIMIT)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    params = BrowserHistoryQueryParams(
-        conn=db_connection,
-        bucket=config.r2.bucket_name,
-        events_path=config.r2.events_path,
-        start_date=start,
-        end_date=end,
-        r2_config=config.r2,
+    params, validated_limit = _build_query_params(
+        db_connection,
+        config,
+        start_date,
+        end_date,
+        limit,
     )
     return get_top_domains(
         params,

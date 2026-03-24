@@ -17,11 +17,54 @@ from backend.validators import validate_date_range, validate_limit
 logger = logging.getLogger(__name__)
 
 
-class GetPageViewsTool(ToolBase):
-    """指定期間の page view 一覧を取得するツール。"""
+class BrowserHistoryToolBase(ToolBase):
+    """Browser History ツール共通処理。"""
 
     def __init__(self, repository: BrowserHistoryRepository):
         self.repository = repository
+
+    def _base_input_schema(self, default_limit: int) -> dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "start_date": {
+                    "type": "string",
+                    "description": "開始日（ISO形式: YYYY-MM-DD）",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "終了日（ISO形式: YYYY-MM-DD）",
+                },
+                "browser": {
+                    "type": "string",
+                    "description": "ブラウザ種別（edge/brave/chrome）",
+                },
+                "profile": {
+                    "type": "string",
+                    "description": "プロファイル名",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "取得件数",
+                    "default": default_limit,
+                },
+            },
+            "required": ["start_date", "end_date"],
+        }
+
+    def _validate_params(
+        self,
+        start_date: str,
+        end_date: str,
+        limit: int,
+    ) -> tuple[object, object, int]:
+        start, end = validate_date_range(start_date, end_date)
+        validated_limit = validate_limit(limit, max_value=MAX_LIMIT)
+        return start, end, validated_limit
+
+
+class GetPageViewsTool(BrowserHistoryToolBase):
+    """指定期間の page view 一覧を取得するツール。"""
 
     @property
     def name(self) -> str:
@@ -36,33 +79,7 @@ class GetPageViewsTool(ToolBase):
 
     @property
     def input_schema(self) -> dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "start_date": {
-                    "type": "string",
-                    "description": "開始日（ISO形式: YYYY-MM-DD）",
-                },
-                "end_date": {
-                    "type": "string",
-                    "description": "終了日（ISO形式: YYYY-MM-DD）",
-                },
-                "browser": {
-                    "type": "string",
-                    "description": "ブラウザ種別（edge/brave/chrome）",
-                },
-                "profile": {
-                    "type": "string",
-                    "description": "プロファイル名",
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "取得件数",
-                    "default": DEFAULT_PAGE_VIEWS_LIMIT,
-                },
-            },
-            "required": ["start_date", "end_date"],
-        }
+        return self._base_input_schema(DEFAULT_PAGE_VIEWS_LIMIT)
 
     def execute(
         self,
@@ -72,8 +89,11 @@ class GetPageViewsTool(ToolBase):
         profile: str | None = None,
         limit: int = DEFAULT_PAGE_VIEWS_LIMIT,
     ) -> list[dict[str, Any]]:
-        start, end = validate_date_range(start_date, end_date)
-        validated_limit = validate_limit(limit, max_value=MAX_LIMIT)
+        start, end, validated_limit = self._validate_params(
+            start_date,
+            end_date,
+            limit,
+        )
 
         logger.info(
             "Executing get_page_views: %s to %s, browser=%s, profile=%s, limit=%s",
@@ -84,19 +104,16 @@ class GetPageViewsTool(ToolBase):
             validated_limit,
         )
         return self.repository.get_page_views(
-            start,
-            end,
+            start_date=start,
+            end_date=end,
             browser=browser,
             profile=profile,
             limit=validated_limit,
         )
 
 
-class GetTopDomainsTool(ToolBase):
+class GetTopDomainsTool(BrowserHistoryToolBase):
     """指定期間の top domains を取得するツール。"""
-
-    def __init__(self, repository: BrowserHistoryRepository):
-        self.repository = repository
 
     @property
     def name(self) -> str:
@@ -111,33 +128,7 @@ class GetTopDomainsTool(ToolBase):
 
     @property
     def input_schema(self) -> dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "start_date": {
-                    "type": "string",
-                    "description": "開始日（ISO形式: YYYY-MM-DD）",
-                },
-                "end_date": {
-                    "type": "string",
-                    "description": "終了日（ISO形式: YYYY-MM-DD）",
-                },
-                "browser": {
-                    "type": "string",
-                    "description": "ブラウザ種別（edge/brave/chrome）",
-                },
-                "profile": {
-                    "type": "string",
-                    "description": "プロファイル名",
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "取得件数",
-                    "default": DEFAULT_TOP_DOMAINS_LIMIT,
-                },
-            },
-            "required": ["start_date", "end_date"],
-        }
+        return self._base_input_schema(DEFAULT_TOP_DOMAINS_LIMIT)
 
     def execute(
         self,
@@ -147,8 +138,11 @@ class GetTopDomainsTool(ToolBase):
         profile: str | None = None,
         limit: int = DEFAULT_TOP_DOMAINS_LIMIT,
     ) -> list[dict[str, Any]]:
-        start, end = validate_date_range(start_date, end_date)
-        validated_limit = validate_limit(limit, max_value=MAX_LIMIT)
+        start, end, validated_limit = self._validate_params(
+            start_date,
+            end_date,
+            limit,
+        )
 
         logger.info(
             "Executing get_top_domains: %s to %s, browser=%s, profile=%s, limit=%s",
@@ -159,8 +153,8 @@ class GetTopDomainsTool(ToolBase):
             validated_limit,
         )
         return self.repository.get_top_domains(
-            start,
-            end,
+            start_date=start,
+            end_date=end,
             browser=browser,
             profile=profile,
             limit=validated_limit,

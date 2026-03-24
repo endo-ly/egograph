@@ -1,5 +1,6 @@
 """Tools/Browser History層のテスト。"""
 
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -45,6 +46,8 @@ class TestGetPageViewsTool:
         assert result == [{"page_view_id": "pv_1"}]
         repository.get_page_views.assert_called_once()
         call_args = repository.get_page_views.call_args
+        assert call_args.kwargs["start_date"] == date(2026, 3, 20)
+        assert call_args.kwargs["end_date"] == date(2026, 3, 22)
         assert call_args.kwargs["browser"] == "edge"
         assert call_args.kwargs["profile"] == "Default"
         assert call_args.kwargs["limit"] == 20

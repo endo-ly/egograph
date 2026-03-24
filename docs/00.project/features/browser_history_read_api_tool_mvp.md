@@ -212,8 +212,8 @@ GET /v1/data/browser-history/top-domains?start_date=2026-03-01&end_date=2026-03-
 
 ## 10. Reference
 
-- [browser_history_collection.md](/root/workspace/ego-graph/wt-browser-history-read-api-tool-mvp/docs/00.project/features/browser_history_collection.md)
-- [08_browser_history.md](/root/workspace/ego-graph/wt-browser-history-read-api-tool-mvp/docs/10.architecture/ingest/08_browser_history.md)
-- [data.py](/root/workspace/ego-graph/wt-browser-history-read-api-tool-mvp/backend/api/data.py)
-- [stats.py](/root/workspace/ego-graph/wt-browser-history-read-api-tool-mvp/backend/domain/tools/spotify/stats.py)
-- [history.ts](/root/workspace/ego-graph/wt-browser-history-read-api-tool-mvp/browser-extension/chromium-history/src/background/history.ts)
+- [browser_history_collection.md](./browser_history_collection.md)
+- [08_browser_history.md](../../10.architecture/ingest/08_browser_history.md)
+- [data.py](../../../backend/api/data.py)
+- [stats.py](../../../backend/domain/tools/spotify/stats.py)
+- [history.ts](../../../browser-extension/chromium-history/src/background/history.ts)

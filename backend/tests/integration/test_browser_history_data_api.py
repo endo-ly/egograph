@@ -42,6 +42,14 @@ class TestPageViewsEndpoint:
 
         assert response.status_code == 401
 
+    def test_get_page_views_requires_dates(self, test_client):
+        response = test_client.get(
+            "/v1/data/browser-history/page-views?limit=5",
+            headers={"X-API-Key": "test-backend-key"},
+        )
+
+        assert response.status_code == 422
+
 
 class TestTopDomainsEndpoint:
     """top-domains エンドポイントのテスト。"""
