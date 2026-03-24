@@ -14,7 +14,8 @@
 | No. | データソース | ドキュメント | データタイプ | 優先度 |
 |---|---|---|---|---|
 | 01 | Spotify | [01_spotify.md](./01_spotify.md) | 構造化ログ | MVP |
-| 02 | Last.fm | [Archived](../../99.archive/lastfm/02_lastfm.md) | 外部メタデータ | Archived |
+| 02 | GitHub | [02_github.md](./02_github.md) | 構造化ログ | MVP |
+| 08 | Browser History | [08_browser_history.md](./08_browser_history.md) | 時系列・行動履歴 | MVP |
 
 ### 実装予定
 
@@ -25,7 +26,6 @@
 | 05 | Calendar（カレンダー） | 未作成 | 構造化ログ | Phase 1 |
 | 06 | Note（メモ） | 未作成 | 非構造化データ | Phase 2 |
 | 07 | Email | 未作成 | 非構造化データ | Phase 2 |
-| 08 | Browser History | [08_browser_history.md](./08_browser_history.md) | 時系列・行動履歴 | Phase 3 |
 | 09 | Location | 未作成 | 時系列・行動履歴 | Phase 3 |
 
 ---

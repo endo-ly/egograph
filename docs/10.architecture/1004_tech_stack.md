@@ -8,10 +8,10 @@
 
 | コンポーネント | 言語/FW     | パッケージマネージャー | 主要ライブラリ                        |
 | -------------- | ----------- | ---------------------- | ------------------------------------- |
-| **ingest/**    | Python 3.13 | uv                     | Spotipy, DuckDB, boto3, pyarrow       |
-| **backend/**   | Python 3.13 | uv                     | FastAPI, Uvicorn, DuckDB              |
-| **gateway/**   | Python 3.13 | uv                     | Starlette, Uvicorn, WebSocket, FCM    |
-| **frontend/**  | Kotlin 2.2.21  | Gradle                 | Compose Multiplatform, MVIKotlin, FCM |
+| **ingest/**    | Python 3.12 | uv                     | Spotipy, PyGithub, DuckDB, boto3, pyarrow |
+| **backend/**   | Python 3.12 | uv                     | FastAPI, Uvicorn, DuckDB              |
+| **gateway/**   | Python 3.12 | uv                     | Starlette, Uvicorn, WebSocket, FCM    |
+| **frontend/**  | Kotlin 2.2.21  | Gradle                 | Compose Multiplatform, Voyager, Koin, Ktor, FCM |
 
 - **Python Workspace**: uv で ingest, backend, gateway を一元管理
 - **Frontend**: Kotlin Multiplatform (Gradle)
@@ -49,10 +49,11 @@
 
 ## 2. Ingest Pipeline（データ収集）
 
-- **Language**: Python 3.13
+- **Language**: Python 3.12
 - **実行環境**: GitHub Actions（定期実行: 1日2回）
 - **主要ライブラリ**:
   - `spotipy`: Spotify API クライアント
+  - `pygithub`: GitHub API クライアント
   - `pyarrow`: Parquet ファイル作成
   - `boto3`: R2 アップロード
   - `duckdb`: データ変換・検証
@@ -62,7 +63,7 @@
 
 ## 3. Backend（Agent API Server）
 
-- **Framework**: FastAPI (Python 3.13)
+- **Framework**: FastAPI (Python 3.12)
 - **Web Server**: Uvicorn (ASGI)
 - **主要ライブラリ**:
   - `duckdb`: データアクセス
@@ -81,7 +82,7 @@
 
 モバイル端末からの tmux セッション接続とプッシュ通知を担当する独立サービス。
 
-- **Framework**: Starlette (Python 3.13)
+- **Framework**: Starlette (Python 3.12)
 - **Web Server**: Uvicorn (ASGI)
 - **主要ライブラリ**:
   - `websockets`: WebSocket 通信（端末入出力）
@@ -107,14 +108,18 @@
 - **Language**: Kotlin 2.2.21
 - **Mobile Runtime**: Native Android
 - **UI System**: Material3 (Compose)
-- **State Management**: MVIKotlin
+- **Navigation**: Voyager 1.1.0-beta03
+- **State Management**: StateFlow + Channel (MVVM パターン)
+- **DI**: Koin 4.0.0
+- **HTTP Client**: Ktor 3.3.3
 - **Terminal UI**: xterm.js (WebView), xterm-addon-fit
 - **Push Notification**: Firebase Cloud Messaging (FCM)
 - **音声入力**: Android SpeechRecognizer
-- **テスト**: Kotest, Turbine
+- **Logging**: Kermit
+- **テスト**: kotlin-test, Turbine, MockK, Ktor MockEngine
 - **実行環境**: モバイル（Android）
 
-詳細: [フロントエンド技術選定](../20.technical_selections/02_frontend.md)
+詳細: [フロントエンド設計書](./frontend/frontend-design.md)
 
 ---
 
@@ -129,6 +134,7 @@
 | `ci-gateway.yml`         | `gateway/**`  | Gateway テスト・Lint    |
 | `ci-frontend.yml`        | `frontend/**` | Frontend テスト (JUnit) |
 | `job-ingest-spotify.yml` | Cron (1日2回) | Spotify データ収集      |
+| `job-ingest-github.yml`  | Cron (1日2回) | GitHub データ収集       |
 
 ### テストツール
 
