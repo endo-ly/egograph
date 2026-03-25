@@ -114,7 +114,7 @@
 - **テスト**: Kotest, Turbine
 - **実行環境**: モバイル（Android）
 
-詳細: [フロントエンド技術選定](../20.technical_selections/02_frontend.md)
+詳細: [フロントエンド技術選定](https://github.com/endo-ava/egograph-frontend-capacitor-legacy/blob/main/docs/20.technical_selections/02_frontend.md)
 
 ---
 
