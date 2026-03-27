@@ -138,4 +138,4 @@ visit 単位の `visit_id` や `referring_visit_id` は `events` には持たせ
 
 ## 関連ドキュメント
 
-- [browser_history_collection.md](../../00.project/features/browser_history_collection.md)
+- [browser_history_collection.md](../../00.requirements/browser_history_collection.md)

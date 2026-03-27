@@ -3,7 +3,7 @@
 ## 概要
 
 このディレクトリには、各データソースごとの詳細設計を記載する。
-すべてのデータソースは[全体アーキテクチャ](../1001_system_architecture.md)で定義された統一スキーマに準拠する。
+すべてのデータソースは[全体アーキテクチャ](../01-overview/system-architecture.md)で定義された統一スキーマに準拠する。
 
 ---
 
@@ -13,9 +13,9 @@
 
 | No. | データソース | ドキュメント | データタイプ | 優先度 |
 |---|---|---|---|---|
-| 01 | Spotify | [01_spotify.md](./01_spotify.md) | 構造化ログ | MVP |
-| 02 | GitHub | [02_github.md](./02_github.md) | 構造化ログ | MVP |
-| 08 | Browser History | [08_browser_history.md](./08_browser_history.md) | 時系列・行動履歴 | MVP |
+| 01 | Spotify | [spotify.md](./spotify.md) | 構造化ログ | MVP |
+| 02 | GitHub | [github.md](./github.md) | 構造化ログ | MVP |
+| 08 | Browser History | [browser-history.md](./browser-history.md) | 時系列・行動履歴 | MVP |
 
 ### 実装予定
 
@@ -139,6 +139,6 @@
 
 ## 参考
 
-- [データモデル（Lexia標準スキーマ）](../1002_data_model.md)
-- [システムアーキテクチャ](../1001_system_architecture.md)
-- [Embedding戦略](../../20.technical_selections/01_embedding.md)
+- [データモデル（Lexia標準スキーマ）](../01-overview/data-strategy.md)
+- [システムアーキテクチャ](../01-overview/system-architecture.md)
+- [Embedding戦略](../../20.technical_selections/embedding.md)

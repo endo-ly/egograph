@@ -110,4 +110,4 @@ ingest/github/
 
 - [GitHub REST API Documentation](https://docs.github.com/rest)
 - [Ingest 共通アーキテクチャ](./README.md)
-- [データモデル](../1002_data_model.md)
+- [データモデル](../01-overview/data-strategy.md)
