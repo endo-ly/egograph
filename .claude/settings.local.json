@@ -68,7 +68,9 @@
       "Bash(codex exec:*)",
       "Bash(tmux capture-pane:*)",
       "Bash(adb devices)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git fetch:*)",
+      "Bash(git worktree:*)"
     ],
     "deny": [
       "Read(.env)",
