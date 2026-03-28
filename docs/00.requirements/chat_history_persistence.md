@@ -185,13 +185,14 @@ CREATE TABLE messages (
   role TEXT NOT NULL,  -- 'user', 'assistant', 'system'
   content TEXT NOT NULL,
   created_at TEXT NOT NULL,  -- ISO8601 UTC
-  model_name TEXT,
-  FOREIGN KEY (thread_id) REFERENCES threads(thread_id)
+  model_name TEXT
 );
 
 CREATE INDEX idx_thread_created
 ON messages(thread_id, created_at);
 ```
+
+- **注**: `messages.thread_id` は `NOT NULL` とするが、外部キー制約は現時点では設定しない。参照整合性はアプリケーションロジックで保証する。
 
 ## 4. Scope
 
