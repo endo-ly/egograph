@@ -1,28 +1,26 @@
-"""チャット履歴用DuckDB接続管理。
+"""チャット履歴用SQLite接続管理。
 
-ローカルファイルベースのDuckDB接続で、スレッドとメッセージの永続化を担当します。
-R2用の:memory:接続（connection.py）とは独立しています。
+ローカルファイルベースのSQLite接続で、スレッドとメッセージの永続化を担当します。
 """
 
 import logging
+import sqlite3
 from pathlib import Path
-
-import duckdb
 
 logger = logging.getLogger(__name__)
 
-# チャット履歴DBのパス（backend/data/chat.duckdb）
-DB_PATH = Path(__file__).parent.parent.parent / "data" / "chat.duckdb"
+# チャット履歴DBのパス（backend/data/chat.sqlite）
+DB_PATH = Path(__file__).parent.parent.parent / "data" / "chat.sqlite"
 
 
-class ChatDuckDBConnection:
-    """チャット履歴用のDuckDB接続マネージャー。
+class ChatSQLiteConnection:
+    """チャット履歴用のSQLite接続マネージャー。
 
     コンテキストマネージャーとして使用し、ローカルファイルベースの
-    DuckDB接続を作成します。
+    SQLite接続を作成します。WALモードと外部キー制約を有効化します。
 
     Example:
-        >>> with ChatDuckDBConnection() as conn:
+        >>> with ChatSQLiteConnection() as conn:
         ...     result = conn.execute(
         ...         "SELECT * FROM threads WHERE user_id = ?",
         ...         ("default_user",)
@@ -31,30 +29,37 @@ class ChatDuckDBConnection:
     """
 
     def __init__(self):
-        """ChatDuckDBConnectionを初期化します。"""
-        self.conn: duckdb.DuckDBPyConnection | None = None
+        """ChatSQLiteConnectionを初期化します。"""
+        self.conn: sqlite3.Connection | None = None
 
-    def __enter__(self) -> duckdb.DuckDBPyConnection:
+    def __enter__(self) -> sqlite3.Connection:
         """コンテキストマネージャーのエントリー。
 
         データディレクトリを作成し、ローカルファイルベースの
-        DuckDB接続を開きます。
+        SQLite接続を開きます。WALモードと外部キー制約を有効化します。
 
         Returns:
-            duckdb.DuckDBPyConnection: 開かれたDuckDBコネクション
+            sqlite3.Connection: 開かれたSQLiteコネクション
 
         Raises:
-            duckdb.Error: DuckDB接続に失敗した場合
+            sqlite3.Error: SQLite接続に失敗した場合
         """
         # データディレクトリを作成（存在しない場合）
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         logger.debug("Opening chat database at path: %s", DB_PATH)
 
         # ローカルファイルベースの接続を作成
-        self.conn = duckdb.connect(str(DB_PATH))
+        # check_same_thread=False: FastAPIの非同期処理で複数スレッドからアクセス可能にする
+        self.conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row
+
+        # WALモードと外部キー制約を有効化
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA foreign_keys=ON")
+
         return self.conn
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """コンテキストマネージャーの終了。
 
         接続をクローズします。
@@ -65,19 +70,19 @@ class ChatDuckDBConnection:
             logger.debug("Closed chat database connection")
 
 
-def _create_threads_table(conn: duckdb.DuckDBPyConnection):
+def _create_threads_table(conn: sqlite3.Connection):
     """threadsテーブルとインデックスを作成します。
 
     Args:
-        conn: DuckDBコネクション
+        conn: SQLiteコネクション
     """
     conn.execute("""
         CREATE TABLE IF NOT EXISTS threads (
-            thread_id VARCHAR PRIMARY KEY,
-            user_id VARCHAR NOT NULL,
-            title VARCHAR NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL,
-            last_message_at TIMESTAMPTZ NOT NULL
+            thread_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            last_message_at TEXT NOT NULL
         )
     """)
 
@@ -87,40 +92,31 @@ def _create_threads_table(conn: duckdb.DuckDBPyConnection):
     """)
 
 
-def _ensure_model_name_column(conn: duckdb.DuckDBPyConnection) -> None:
+def _ensure_model_name_column(conn: sqlite3.Connection) -> None:
     """model_nameカラムが存在することを保証します。"""
-    result = conn.execute("""
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_name = 'messages' AND column_name = 'model_name'
-    """).fetchall()
+    result = conn.execute("PRAGMA table_info(messages)").fetchall()
+    columns = [row[1] for row in result]
 
-    if not result:
-        conn.execute("ALTER TABLE messages ADD COLUMN model_name VARCHAR")
+    if "model_name" not in columns:
+        conn.execute("ALTER TABLE messages ADD COLUMN model_name TEXT")
         logger.info("Added model_name column to messages table")
 
 
-def _create_messages_table(conn: duckdb.DuckDBPyConnection):
+def _create_messages_table(conn: sqlite3.Connection):
     """messagesテーブルとインデックスを作成します。
 
     Args:
-        conn: DuckDBコネクション
-
-    Note:
-        DuckDB 1.1.0以降は外部キー制約をサポートしていますが、
-        現時点では設定していません。将来的に外部キー制約を追加する場合は、
-        既存データのマイグレーションを考慮する必要があります。
-        現在は参照整合性をアプリケーションロジックで保証しています。
+        conn: SQLiteコネクション
     """
     conn.execute("""
         CREATE TABLE IF NOT EXISTS messages (
-            message_id VARCHAR PRIMARY KEY,
-            thread_id VARCHAR NOT NULL,
-            user_id VARCHAR NOT NULL,
-            role VARCHAR NOT NULL,
+            message_id TEXT PRIMARY KEY,
+            thread_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            role TEXT NOT NULL,
             content TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL,
-            model_name VARCHAR
+            created_at TEXT NOT NULL,
+            model_name TEXT
         )
     """)
 
@@ -130,17 +126,17 @@ def _create_messages_table(conn: duckdb.DuckDBPyConnection):
     """)
 
 
-def create_chat_tables(conn: duckdb.DuckDBPyConnection):
+def create_chat_tables(conn: sqlite3.Connection):
     """チャット履歴用のテーブルを作成します。
 
     threads テーブルとmessages テーブルを作成し、
     必要なインデックスを設定します。べき等な操作です。
 
     Args:
-        conn: DuckDBコネクション
+        conn: SQLiteコネクション
 
     Raises:
-        duckdb.Error: テーブル作成に失敗した場合
+        sqlite3.Error: テーブル作成に失敗した場合
     """
     logger.info("Creating chat tables if they do not exist")
 

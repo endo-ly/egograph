@@ -1,6 +1,6 @@
 """Infrastructure Database Layer.
 
-DuckDB接続管理とクエリヘルパー関数を提供します。
+DuckDB接続管理（R2用）とSQLite接続管理（チャット履歴用）を提供します。
 """
 
 from backend.infrastructure.database.browser_history_queries import (
@@ -9,7 +9,7 @@ from backend.infrastructure.database.browser_history_queries import (
     get_top_domains,
 )
 from backend.infrastructure.database.chat_connection import (
-    ChatDuckDBConnection,
+    ChatSQLiteConnection,
     create_chat_tables,
 )
 from backend.infrastructure.database.connection import DuckDBConnection
@@ -37,8 +37,10 @@ from backend.infrastructure.database.queries import (
 )
 
 __all__ = [
+    # R2 Data Lake (DuckDB)
     "DuckDBConnection",
-    "ChatDuckDBConnection",
+    # Chat History (SQLite)
+    "ChatSQLiteConnection",
     "create_chat_tables",
     # Browser History
     "BrowserHistoryQueryParams",
