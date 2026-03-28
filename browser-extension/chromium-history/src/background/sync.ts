@@ -22,9 +22,12 @@ export interface SyncDependencies {
   setFailedSync: typeof setFailedSync;
   createSyncId: () => string;
   now: () => Date;
+  sleep: (ms: number) => Promise<void>;
 }
 
 const MAX_ITEMS_PER_REQUEST = 1000;
+const MAX_POST_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 5000;
 
 function randomUuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -41,7 +44,8 @@ export const defaultSyncDependencies: SyncDependencies = {
   setSuccessfulSync,
   setFailedSync,
   createSyncId: randomUuid,
-  now: () => new Date()
+  now: () => new Date(),
+  sleep: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 };
 
 export function buildPayload(
@@ -72,6 +76,45 @@ function chunkItems<T>(items: T[], chunkSize: number): T[][] {
   return chunks;
 }
 
+function shouldRetrySyncOutcome(result: SyncOutcome): boolean {
+  if (result.ok) {
+    return false;
+  }
+  return result.message === "Failed to fetch";
+}
+
+async function postBrowserHistoryWithRetry(
+  deps: SyncDependencies,
+  settings: ExtensionSettings,
+  payload: BrowserHistoryPayload
+): Promise<SyncOutcome> {
+  let lastResult: SyncOutcome | null = null;
+
+  for (let attempt = 1; attempt <= MAX_POST_ATTEMPTS; attempt += 1) {
+    try {
+      const result = await deps.postBrowserHistory(
+        settings.serverUrl,
+        settings.xApiKey,
+        payload
+      );
+      if (!shouldRetrySyncOutcome(result) || attempt === MAX_POST_ATTEMPTS) {
+        return result;
+      }
+      lastResult = result;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      lastResult = { ok: false, message };
+      if (attempt === MAX_POST_ATTEMPTS || message !== "Failed to fetch") {
+        return lastResult;
+      }
+    }
+
+    await deps.sleep(RETRY_DELAY_MS);
+  }
+
+  return lastResult ?? { ok: false, message: "Sync failed" };
+}
+
 export async function runBrowserHistorySync(
   deps: SyncDependencies = defaultSyncDependencies
 ): Promise<SyncOutcome> {
@@ -97,11 +140,7 @@ export async function runBrowserHistorySync(
         syncStartedAt,
         deps.createSyncId()
       );
-      const result = await deps.postBrowserHistory(
-        settings.serverUrl,
-        settings.xApiKey,
-        payload
-      );
+      const result = await postBrowserHistoryWithRetry(deps, settings, payload);
 
       if (!result.ok) {
         await deps.setFailedSync(result.message ?? "Sync failed");
@@ -124,4 +163,4 @@ export function runConfiguredSync(): Promise<SyncOutcome> {
   return runBrowserHistorySync();
 }
 
-export { MAX_ITEMS_PER_REQUEST };
+export { MAX_ITEMS_PER_REQUEST, MAX_POST_ATTEMPTS, RETRY_DELAY_MS };

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  MAX_POST_ATTEMPTS,
   MAX_ITEMS_PER_REQUEST,
+  RETRY_DELAY_MS,
   runBrowserHistorySync
 } from "../src/background/sync.js";
 
@@ -35,7 +37,8 @@ describe("sync", () => {
       setSuccessfulSync,
       setFailedSync,
       createSyncId: () => "sync-1",
-      now: () => new Date("2026-03-22T12:30:00.000Z")
+      now: () => new Date("2026-03-22T12:30:00.000Z"),
+      sleep: vi.fn()
     });
 
     expect(result.ok).toBe(true);
@@ -59,7 +62,8 @@ describe("sync", () => {
       setSuccessfulSync,
       setFailedSync,
       createSyncId: () => "sync-1",
-      now: () => new Date("2026-03-22T12:30:00.000Z")
+      now: () => new Date("2026-03-22T12:30:00.000Z"),
+      sleep: vi.fn()
     });
 
     expect(result.ok).toBe(false);
@@ -76,7 +80,8 @@ describe("sync", () => {
       setSuccessfulSync: vi.fn(),
       setFailedSync: vi.fn(),
       createSyncId: () => "sync-1",
-      now: () => new Date("2026-03-22T12:30:00.000Z")
+      now: () => new Date("2026-03-22T12:30:00.000Z"),
+      sleep: vi.fn()
     });
 
     expect(result).toEqual({ ok: false, message: "Incomplete settings" });
@@ -95,7 +100,8 @@ describe("sync", () => {
       setSuccessfulSync: vi.fn(),
       setFailedSync,
       createSyncId: () => "sync-1",
-      now: () => new Date("2026-03-22T12:30:00.000Z")
+      now: () => new Date("2026-03-22T12:30:00.000Z"),
+      sleep: vi.fn()
     });
 
     expect(result).toEqual({ ok: false, message: "network down" });
@@ -123,7 +129,8 @@ describe("sync", () => {
       setSuccessfulSync,
       setFailedSync: vi.fn(),
       createSyncId: () => "sync-1",
-      now: () => new Date("2026-03-22T12:30:00.000Z")
+      now: () => new Date("2026-03-22T12:30:00.000Z"),
+      sleep: vi.fn()
     });
 
     expect(postBrowserHistory).toHaveBeenCalledTimes(2);
@@ -133,6 +140,8 @@ describe("sync", () => {
 
   it("startup and sync-now share the same sync function", async () => {
     const startupAddListener = vi.fn();
+    const alarmAddListener = vi.fn();
+    const createAlarm = vi.fn();
     const messageAddListener = vi.fn();
     const runConfiguredSync = vi.fn().mockResolvedValue(undefined);
 
@@ -141,6 +150,10 @@ describe("sync", () => {
     }));
 
     globalThis.chrome = {
+      alarms: {
+        create: createAlarm,
+        onAlarm: { addListener: alarmAddListener }
+      },
       runtime: {
         onStartup: { addListener: startupAddListener },
         onMessage: { addListener: messageAddListener }
@@ -150,6 +163,71 @@ describe("sync", () => {
     await import("../src/background/main.js");
 
     expect(startupAddListener).toHaveBeenCalledOnce();
+    expect(alarmAddListener).toHaveBeenCalledOnce();
     expect(messageAddListener).toHaveBeenCalledOnce();
+  });
+
+  it("retries failed fetches before succeeding", async () => {
+    const postBrowserHistory = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, message: "Failed to fetch" })
+      .mockResolvedValueOnce({ ok: false, message: "Failed to fetch" })
+      .mockResolvedValueOnce({ ok: true, accepted: 1, status: 200 });
+    const sleep = vi.fn();
+    const setSuccessfulSync = vi.fn();
+
+    const result = await runBrowserHistorySync({
+      getSettings: async () => completeSettings,
+      getLastSuccessfulSyncAt: async () => "2026-03-22T11:00:00.000Z",
+      collectHistoryItems: async () => [
+        {
+          url: "https://example.com",
+          visit_time: "2026-03-22T12:00:00.000Z"
+        }
+      ],
+      postBrowserHistory,
+      setSuccessfulSync,
+      setFailedSync: vi.fn(),
+      createSyncId: () => "sync-1",
+      now: () => new Date("2026-03-22T12:30:00.000Z"),
+      sleep
+    });
+
+    expect(result.ok).toBe(true);
+    expect(postBrowserHistory).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenNthCalledWith(1, RETRY_DELAY_MS);
+    expect(sleep).toHaveBeenNthCalledWith(2, RETRY_DELAY_MS);
+    expect(setSuccessfulSync).toHaveBeenCalledOnce();
+  });
+
+  it("stops retrying after the max failed fetch attempts", async () => {
+    const setFailedSync = vi.fn();
+    const postBrowserHistory = vi
+      .fn()
+      .mockResolvedValue({ ok: false, message: "Failed to fetch" });
+    const sleep = vi.fn();
+
+    const result = await runBrowserHistorySync({
+      getSettings: async () => completeSettings,
+      getLastSuccessfulSyncAt: async () => "2026-03-22T11:00:00.000Z",
+      collectHistoryItems: async () => [
+        {
+          url: "https://example.com",
+          visit_time: "2026-03-22T12:00:00.000Z"
+        }
+      ],
+      postBrowserHistory,
+      setSuccessfulSync: vi.fn(),
+      setFailedSync,
+      createSyncId: () => "sync-1",
+      now: () => new Date("2026-03-22T12:30:00.000Z"),
+      sleep
+    });
+
+    expect(result).toEqual({ ok: false, message: "Failed to fetch" });
+    expect(postBrowserHistory).toHaveBeenCalledTimes(MAX_POST_ATTEMPTS);
+    expect(sleep).toHaveBeenCalledTimes(MAX_POST_ATTEMPTS - 1);
+    expect(setFailedSync).toHaveBeenCalledWith("Failed to fetch");
   });
 });
