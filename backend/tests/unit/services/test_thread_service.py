@@ -76,12 +76,13 @@ def test_add_message(thread_service):
         initial_last_message_at = thread.last_message_at
 
     # メッセージ追加時は1分後のタイムスタンプをモック
+    later_time = base_time + timedelta(minutes=1)
     with patch(
         "backend.infrastructure.repositories.thread_repository.datetime"
     ) as mock_datetime:
-        later_time = base_time + timedelta(minutes=1)
         mock_datetime.now.return_value = later_time
-        mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+        # datetime.fromisoformat() が元の datetime を使用するように設定
+        mock_datetime.fromisoformat.side_effect = datetime.fromisoformat
 
         message_content = "Follow-up message"
         message = thread_service.add_message(
