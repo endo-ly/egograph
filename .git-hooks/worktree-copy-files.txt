@@ -4,8 +4,6 @@
 
 .env
 backend/.env
-gateway/.env
 frontend/.env
 frontend-capacitor/.env
 frontend/androidApp/google-services.json
-gateway/firebase-service-account.json

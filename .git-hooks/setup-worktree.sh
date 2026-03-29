@@ -106,11 +106,9 @@ run_npm_install_for_dir() {
 readonly -a DEFAULT_COPY_FILES=(
     ".env"
     "backend/.env"
-    "gateway/.env"
     "frontend/.env"
     "frontend-capacitor/.env"
     "frontend/androidApp/google-services.json"
-    "gateway/firebase-service-account.json"
 )
 
 readonly -a DEFAULT_NPM_DIRS=(
