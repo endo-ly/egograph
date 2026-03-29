@@ -96,7 +96,7 @@
 
 ---
 
-## 6. CI/CD
+## 5. CI/CD
 
 ### GitHub Actions
 
@@ -115,7 +115,7 @@
 
 ---
 
-## 7. Deployment Infrastructure
+## 6. Deployment Infrastructure
 
 ### 開発環境
 
