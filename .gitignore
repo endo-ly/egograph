@@ -115,3 +115,4 @@ gateway/firebase-service-account.json
 .worktree-setup.log
 
 docs/00.project/plan/
+target/
