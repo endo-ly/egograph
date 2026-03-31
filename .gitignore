@@ -47,6 +47,7 @@ env/
 .env.*.local
 .env.production
 egopulse/egopulse.local.toml
+egopulse/egopulse.toml
 .egopulse/
 *.db-wal
 *.db-shm
