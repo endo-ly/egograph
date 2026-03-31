@@ -9,3 +9,7 @@
 The initial `egopulse/` runtime foundation adapts structure and code patterns from
 MicroClaw's `Cargo.toml`, `src/main.rs`, `src/runtime.rs`, `src/config.rs`, and
 `src/llm.rs`.
+
+The persistent agent core additionally adapts structure and code patterns from
+MicroClaw's `crates/microclaw-storage/src/db.rs`, `src/runtime.rs`,
+`src/agent_engine.rs`, and the CLI/session wiring around `src/main.rs`.

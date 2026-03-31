@@ -10,6 +10,8 @@ pub enum EgoPulseError {
     Llm(#[from] LlmError),
     #[error(transparent)]
     Logging(#[from] LoggingError),
+    #[error(transparent)]
+    Storage(#[from] StorageError),
     #[error("shutdown_requested")]
     ShutdownRequested,
 }
@@ -61,4 +63,20 @@ pub enum LlmError {
 pub enum LoggingError {
     #[error("logging_init_failed: {0}")]
     InitFailed(String),
+}
+
+#[derive(Debug, Error)]
+pub enum StorageError {
+    #[error("storage_init_failed: {0}")]
+    InitFailed(String),
+    #[error("storage_io_failed: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("storage_sqlite_failed: {0}")]
+    Sqlite(#[from] rusqlite::Error),
+    #[error("storage_task_join_failed: {0}")]
+    TaskJoin(String),
+    #[error("storage_session_serialize_failed: {0}")]
+    SessionSerialize(#[from] serde_json::Error),
+    #[error("storage_session_snapshot_conflict")]
+    SessionSnapshotConflict,
 }

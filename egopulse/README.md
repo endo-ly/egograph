@@ -1,7 +1,8 @@
 # EgoPulse
 
 EgoPulse は EgoGraph 向けの Rust runtime foundation です。  
-この MVP では、OpenAI-compatible endpoint に対して単発の `ask` を実行する最小土台だけを提供します。
+Issue 2 時点では、channel-agnostic な agent loop と SQLite ベースの session 永続化を備えた
+CLI runtime を提供します。
 
 ## Prerequisites
 
@@ -26,6 +27,7 @@ EgoPulse は EgoGraph 向けの Rust runtime foundation です。
 export EGOPULSE_MODEL="gpt-4o-mini"
 export EGOPULSE_API_KEY="sk-..."
 export EGOPULSE_BASE_URL="https://api.openai.com/v1"
+export EGOPULSE_DATA_DIR=".egopulse"
 export EGOPULSE_LOG_LEVEL="info"
 ```
 
@@ -71,6 +73,7 @@ cargo run -p egopulse -- --config egopulse/egopulse.local.toml ask "hello"
 export EGOPULSE_MODEL="gpt-4o-mini"
 export EGOPULSE_API_KEY="sk-..."
 export EGOPULSE_BASE_URL="https://api.openai.com/v1"
+export EGOPULSE_DATA_DIR=".egopulse"
 
 cargo run -p egopulse -- ask "hello"
 ```
@@ -80,6 +83,33 @@ cargo run -p egopulse -- ask "hello"
 ```text
 assistant: ...
 ```
+
+継続会話を始める場合:
+
+```bash
+cargo run -p egopulse -- chat --session local-dev
+```
+
+別プロセスから既存 session を再開する場合:
+
+```bash
+cargo run -p egopulse -- ask --session local-dev "remember my last question?"
+```
+
+会話履歴と session snapshot は `EGOPULSE_DATA_DIR/egopulse.db` に保存されます。
+Issue 2 では `cli:<session>` を安定した session key として扱います。
+
+## Current scope
+
+- OpenAI-compatible endpoint に対する `ask`
+- SQLite 永続化付きの `chat --session`
+- `ask --session` による既存 session の再開
+
+次フェーズで追加予定:
+
+- Discord / Telegram / WebUI
+- tools / skills
+- MCP integration
 
 ## Local checks
 
