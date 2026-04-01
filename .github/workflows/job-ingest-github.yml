@@ -44,7 +44,7 @@ jobs:
           [ -n "$GITHUB_PAT" ] || { echo "EGOGRAPH_GITHUB_PAT secret is required"; exit 1; }
           [ -n "$GITHUB_LOGIN" ] || { echo "EGOGRAPH_GITHUB_LOGIN secret is required"; exit 1; }
 
-          uv run python -m ingest.github.main
+          uv run python -m egograph.ingest.github.main
 
       - name: Compact GitHub parquet datasets
         env:
@@ -54,7 +54,7 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           LOG_LEVEL: INFO
         run: |
-          uv run python -m ingest.github.compact
+          uv run python -m egograph.ingest.github.compact
 
       - name: Verify Compact Parquet Data Integrity (R2)
         if: success()

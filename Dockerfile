@@ -11,11 +11,11 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock /app/
-COPY backend /app/backend
-COPY shared /app/shared
+COPY egograph/backend /app/egograph/backend
+COPY egograph/ingest /app/egograph/ingest
 
 RUN uv sync --all-packages --frozen
 
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "egograph.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

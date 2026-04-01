@@ -44,7 +44,7 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           LOG_LEVEL: INFO
         run: |
-          uv run python -m ingest.spotify.main
+          uv run python -m egograph.ingest.spotify.main
 
       - name: Compact Spotify parquet datasets
         env:
@@ -54,7 +54,7 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           LOG_LEVEL: INFO
         run: |
-          uv run python -m ingest.spotify.compact
+          uv run python -m egograph.ingest.spotify.compact
 
       - name: Verify Compact Parquet Data Integrity (R2)
         if: success()

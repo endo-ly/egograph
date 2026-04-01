@@ -38,7 +38,7 @@ Backend サービスは主に 2 つの目的を果たします：
     ```bash
     uv sync
     ```
-2.  `backend/.env` に設定（`.env.example`を参照）:
+2.  `egograph/backend/.env` に設定（`.env.example`を参照）:
     - `R2_*` のクレデンシャルを設定（データアクセス用）。
     - `LOCAL_PARQUET_ROOT` を設定すると、compacted parquet のローカル mirror を優先利用します。
     - `LLM_*` のクレデンシャルを設定（チャット機能に必須）。
@@ -48,7 +48,7 @@ Backend サービスは主に 2 つの目的を果たします：
 
 ```bash
 # 自動リロード付き開発モード
-uv run uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+uv run uvicorn egograph.backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 - **API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)

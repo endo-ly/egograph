@@ -77,12 +77,12 @@ uv run python -m ingest.github.compact
 
 ## Initial Bootstrap Note
 
-`ingest.bootstrap_compact` は `backend/.env` を自動では読みません。
+`ingest.bootstrap_compact` は `egograph/backend/.env` を自動では読みません。
 初回手動実行時は、`R2_*` 環境変数をシェルに読み込んでから実行してください。
 
 ```bash
 set -a
-source <(grep '^R2_' backend/.env)
+source <(grep '^R2_' egograph/backend/.env)
 set +a
 
 uv run python -m ingest.bootstrap_compact

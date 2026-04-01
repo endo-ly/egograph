@@ -29,7 +29,10 @@ dependencies = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
+packages = ["backend"]
+
+[tool.hatch.build]
+dev-mode-dirs = [".."]
 
 [dependency-groups]
 dev = [

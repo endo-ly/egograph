@@ -5,12 +5,12 @@ on:
   push:
     branches: [main]
     paths:
-      - "browser-extension/chromium-history/**"
+      - "egograph/browser-extension/chromium-history/**"
       - ".github/workflows/ci-browser-extension.yml"
   pull_request:
     branches: [main]
     paths:
-      - "browser-extension/chromium-history/**"
+      - "egograph/browser-extension/chromium-history/**"
       - ".github/workflows/ci-browser-extension.yml"
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: browser-extension/chromium-history
+        working-directory: egograph/browser-extension/chromium-history
 
     steps:
       - name: Checkout code
@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: "browser-extension/chromium-history/package-lock.json"
+          cache-dependency-path: "egograph/browser-extension/chromium-history/package-lock.json"
 
       - name: Install dependencies
         run: npm ci
@@ -45,6 +45,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: chromium-history-extension-dist
-          path: browser-extension/chromium-history/dist/
+          path: egograph/browser-extension/chromium-history/dist/
           if-no-files-found: error
           retention-days: 14

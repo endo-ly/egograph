@@ -312,7 +312,7 @@ wheels = [
 [[package]]
 name = "egograph-backend"
 version = "0.1.0"
-source = { editable = "backend" }
+source = { editable = "egograph/backend" }
 dependencies = [
     { name = "duckdb" },
     { name = "fastapi" },
@@ -363,7 +363,7 @@ dev = [
 [[package]]
 name = "egograph-ingest"
 version = "0.1.0"
-source = { editable = "ingest" }
+source = { editable = "egograph/ingest" }
 dependencies = [
     { name = "boto3" },
     { name = "duckdb" },

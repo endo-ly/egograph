@@ -5,11 +5,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "backend/**"
+      - "egograph/backend/**"
   pull_request:
     branches: [main]
     paths:
-      - "backend/**"
+      - "egograph/backend/**"
 
 jobs:
   test:
@@ -36,7 +36,7 @@ jobs:
           R2_SECRET_ACCESS_KEY: "test-secret-key"
           R2_BUCKET_NAME: "test-bucket"
         run: |
-          cd backend
+          cd egograph/backend
           uv run pytest tests/ -v --cov=backend --cov-report=xml --cov-report=term
 
       # Future: Enable Codecov when needed (requires CODECOV_TOKEN in GitHub Secrets)

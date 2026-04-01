@@ -1,9 +1,9 @@
 {
     "python.defaultInterpreterPath": ".venv/bin/python",
     "python.analysis.extraPaths": [
-        "./shared",
-        "./ingest",
-        "./backend"
+        "./egograph/shared",
+        "./egograph/ingest",
+        "./egograph/backend"
     ],
     "python.analysis.typeCheckingMode": "basic",
     "editor.formatOnSave": true,
@@ -45,7 +45,7 @@
     },
     "scm.alwaysShowRepositories": true,
     "python.testing.pytestArgs": [
-        "ingest"
+        "egograph/ingest"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,

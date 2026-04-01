@@ -1,4 +1,4 @@
-# Python
+# ==================== Python ====================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,28 +20,59 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
-# Node.js (Frontend)
-node_modules/
-dist/
-.next/
-*.tsbuildinfo
+*.pyc
 
 # Virtual environments
+.venv/
 venv/
 ENV/
 env/
-.venv
 
-# IDEs
-# .vscode/
+# Python tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.hypothesis/
+.pyre/
+.dmypy.json
+dmypy.json
+
+# Testing
+.coverage
+coverage/
+coverage.xml
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints
+
+# ==================== Rust ====================
+target/
+*.rs.bk
+
+# ==================== Node.js ====================
+node_modules/
+dist/
+*.tsbuildinfo
+
+# ==================== Kotlin/Android ====================
+.gradle/
+build/
+.kotlin/
+*.class
+*.jar
+*.aar
+*.apk
+
+# ==================== IDE ====================
 .idea/
 *.swp
 *.swo
 *~
 .DS_Store
 
-# Environment variables
+# ==================== Environment & Secrets ====================
 .env
 .env.local
 .env.*.local
@@ -49,75 +80,45 @@ env/
 egopulse/egopulse.local.yaml
 egopulse/egopulse.config.yaml
 .egopulse/
-*.db-wal
-*.db-shm
+frontend/androidApp/google-services.json
+gateway/firebase-service-account.json
 
-# Spotify credentials cache (contains access_token and refresh_token)
+# ==================== Spotify Cache ====================
 .cache
 
-# Logs
-logs/
+# ==================== Project Specific ====================
+egograph/backend/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
 *.log
+logs/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-coverage/
-.tox/
-.hypothesis/
-backend/coverage.xml
-
-# Jupyter
-.ipynb_checkpoints
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre
-.pyre/
-
-# Project specific
-backend/data/
-*.db
-*.sqlite
-
-backend/infrastructure/context/*
-!backend/infrastructure/context/templates/
-!backend/infrastructure/context/templates/**
-
-.vscode/
-.serena/
-
-tmp/
-
-query_graph
+egograph/backend/infrastructure/context/*
+!egograph/backend/infrastructure/context/templates/
+!egograph/backend/infrastructure/context/templates/**
 
 scripts/install-android.ps1
 scripts/install-lsp.sh
 scripts/debug-adb.ps1
 scripts/curl-prod-api.sh
 
-# Ignore git worktree checkout
-wt1/
-
+# ==================== AI Agents ====================
 .sisyphus/
+.serena/
 
-# Maestro (mobile UI testing)
+# ==================== Maestro ====================
 .maestro/reports/
 maestro/reports/
 *.mp4
 
-# Firebase config (contains project keys)
-frontend/androidApp/google-services.json
-
-gateway/firebase-service-account.json
-# Worktree setup log
+# ==================== Git Worktree ====================
+wt*/
 .worktree-setup.log
 
-docs/00.project/plan/
-target/
+# ==================== Misc ====================
+.tmp/
+tmp/

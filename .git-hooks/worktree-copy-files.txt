@@ -3,8 +3,7 @@
 # - パスはリポジトリルートからの相対パスで指定します
 
 .env
-backend/.env
+egograph/backend/.env
 frontend/.env
-frontend-capacitor/.env
 frontend/androidApp/google-services.json
 egopulse/egopulse.config.yaml
