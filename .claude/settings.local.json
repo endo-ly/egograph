@@ -70,7 +70,11 @@
       "Bash(adb devices)",
       "Bash(curl:*)",
       "Bash(git fetch:*)",
-      "Bash(git worktree:*)"
+      "Bash(git worktree:*)",
+      "Bash(gh api:*)",
+      "Bash(cd egopulse:*)",
+      "Bash(cargo check:*)",
+      "Bash(xargs grep:*)"
     ],
     "deny": [
       "Read(.env)",
