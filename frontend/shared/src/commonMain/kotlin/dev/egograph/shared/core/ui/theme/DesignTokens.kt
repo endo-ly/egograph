@@ -41,7 +41,6 @@ data class EgoGraphDimens(
     val borderWidthThin: Dp = 1.dp,
     val topBarButtonHeight: Dp = 32.dp,
     val minTapTargetWidth: Dp = 72.dp,
-    val terminalHeaderHeight: Dp = 96.dp,
     val chatComposerMinHeight: Dp = 100.dp,
     val chatComposerTextLaneMinHeight: Dp = 30.dp,
     val modelSelectorMaxWidth: Dp = 140.dp,

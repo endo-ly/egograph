@@ -23,16 +23,10 @@ fun MainViewTransition(
         targetState = activeView,
         transitionSpec = {
             when {
-                initialState == MainView.Chat && targetState == MainView.Terminal -> {
+                initialState == MainView.Chat && targetState == MainView.Settings -> {
                     slideInHorizontally { fullWidth -> fullWidth } togetherWith slideOutHorizontally { fullWidth -> -fullWidth }
                 }
-                initialState == MainView.Chat && targetState == MainView.TerminalSession -> {
-                    slideInHorizontally { fullWidth -> fullWidth } togetherWith slideOutHorizontally { fullWidth -> -fullWidth }
-                }
-                initialState == MainView.Terminal && targetState == MainView.Chat -> {
-                    slideInHorizontally { fullWidth -> -fullWidth } togetherWith slideOutHorizontally { fullWidth -> fullWidth }
-                }
-                initialState == MainView.TerminalSession && targetState == MainView.Chat -> {
+                initialState == MainView.Settings && targetState == MainView.Chat -> {
                     slideInHorizontally { fullWidth -> -fullWidth } togetherWith slideOutHorizontally { fullWidth -> fullWidth }
                 }
                 else -> EnterTransition.None togetherWith ExitTransition.None

@@ -2,67 +2,12 @@
 <issues format="6" by="lint 8.10.0" type="baseline" client="gradle" dependencies="false" name="AGP (8.10.0)" variant="all" version="8.10.0">
 
     <issue
-        id="InlinedApi"
-        message="Field requires API level 33 (current min is 24): `android.Manifest.permission#POST_NOTIFICATIONS`"
-        errorLine1="                launcher.launch(Manifest.permission.POST_NOTIFICATIONS)"
-        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/androidMain/kotlin/dev/egograph/shared/platform/terminal/PermissionUtil.android.kt"
-            line="84"
-            column="33"/>
-    </issue>
-
-    <issue
-        id="InlinedApi"
-        message="Field requires API level 33 (current min is 24): `android.Manifest.permission#POST_NOTIFICATIONS`"
-        errorLine1="                Manifest.permission.POST_NOTIFICATIONS,"
-        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/androidMain/kotlin/dev/egograph/shared/platform/terminal/PermissionUtil.android.kt"
-            line="96"
-            column="17"/>
-    </issue>
-
-    <issue
-        id="SetJavaScriptEnabled"
-        message="Using `setJavaScriptEnabled` can introduce XSS vulnerabilities into your application, review carefully"
-        errorLine1="                javaScriptEnabled = true"
-        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/androidMain/kotlin/dev/egograph/shared/platform/terminal/TerminalWebView.android.kt"
-            line="67"
-            column="17"/>
-    </issue>
-
-    <issue
-        id="StaticFieldLeak"
-        message="Do not place Android context classes in static fields (static reference to `ActivityRecorder` which has field `currentActivity` pointing to `Context`); this is a memory leak"
-        errorLine1="/**"
-        errorLine2="^">
-        <location
-            file="src/androidMain/kotlin/dev/egograph/shared/platform/terminal/SpeechRecognizerFactory.android.kt"
-            line="134"
-            column="1"/>
-    </issue>
-
-    <issue
-        id="StaticFieldLeak"
-        message="Do not place Android context classes in static fields; this is a memory leak"
-        errorLine1="    var currentActivity: Context? = null"
-        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/androidMain/kotlin/dev/egograph/shared/platform/terminal/SpeechRecognizerFactory.android.kt"
-            line="140"
-            column="5"/>
-    </issue>
-
-    <issue
         id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
         errorLine1="        prefs.edit().putString(key, value).apply()"
         errorLine2="        ~~~~~~~~~~~~">
         <location
-            file="src/androidMain/kotlin/dev/egograph/shared/platform/PlatformPreferences.android.kt"
+            file="src/androidMain/kotlin/dev/egograph/shared/core/platform/PlatformPreferences.android.kt"
             line="24"
             column="9"/>
     </issue>
@@ -73,31 +18,9 @@
         errorLine1="        prefs.edit().putBoolean(key, value).apply()"
         errorLine2="        ~~~~~~~~~~~~">
         <location
-            file="src/androidMain/kotlin/dev/egograph/shared/platform/PlatformPreferences.android.kt"
+            file="src/androidMain/kotlin/dev/egograph/shared/core/platform/PlatformPreferences.android.kt"
             line="36"
             column="9"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="            setBackgroundColor(Color.parseColor(&quot;#1e1e1e&quot;))"
-        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/androidMain/kotlin/dev/egograph/shared/platform/terminal/TerminalWebView.android.kt"
-            line="139"
-            column="32"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="        _webView.setBackgroundColor(Color.parseColor(backgroundColor))"
-        errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/androidMain/kotlin/dev/egograph/shared/platform/terminal/TerminalWebView.android.kt"
-            line="293"
-            column="37"/>
     </issue>
 
 </issues>

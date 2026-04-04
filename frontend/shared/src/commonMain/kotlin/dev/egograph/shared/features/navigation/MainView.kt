@@ -7,7 +7,4 @@ enum class MainView {
     Chat,
     SystemPrompt,
     Settings,
-    Terminal,
-    GatewaySettings,
-    TerminalSession,
 }

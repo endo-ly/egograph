@@ -25,8 +25,6 @@ import dev.egograph.shared.core.settings.ThemeRepositoryImpl
 import dev.egograph.shared.features.chat.ChatScreenModel
 import dev.egograph.shared.features.settings.SettingsScreenModel
 import dev.egograph.shared.features.systemprompt.SystemPromptEditorScreenModel
-import dev.egograph.shared.features.terminal.agentlist.AgentListScreenModel
-import dev.egograph.shared.features.terminal.settings.GatewaySettingsScreenModel
 import io.ktor.client.HttpClient
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -123,19 +121,6 @@ val appModule =
                 threadRepository = get(),
                 messageRepository = get(),
                 chatRepository = get(),
-                preferences = get(),
-            )
-        }
-
-        factory {
-            AgentListScreenModel(
-                terminalRepository = get(),
-                preferences = get(),
-            )
-        }
-
-        factory {
-            GatewaySettingsScreenModel(
                 preferences = get(),
             )
         }
