@@ -2,6 +2,7 @@ from pipelines.domain.workflow import (
     QueuedReason,
     StepDefinition,
     StepExecutorType,
+    StepRunStatus,
     TriggerType,
     WorkflowDefinition,
     WorkflowRunStatus,
@@ -24,16 +25,17 @@ def _build_dispatcher(tmp_path, workflows):
     repository = WorkflowStateRepository(conn)
     repository.register_workflows(workflows)
     log_store = LocalLogStore(tmp_path / "logs")
+    lock_manager = WorkflowLockManager(conn, lease_seconds=60)
     dispatcher = RunDispatcher(
         repository=repository,
         workflows=workflows,
-        lock_manager=WorkflowLockManager(conn, lease_seconds=60),
+        lock_manager=lock_manager,
         subprocess_executor=SubprocessStepExecutor(log_store),
         inprocess_executor=InProcessStepExecutor(log_store),
         poll_seconds=0.01,
         heartbeat_seconds=60,
     )
-    return repository, dispatcher
+    return repository, dispatcher, lock_manager
 
 
 def test_dispatch_once_succeeds_and_writes_step_log(tmp_path):
@@ -54,7 +56,7 @@ def test_dispatch_once_succeeds_and_writes_step_log(tmp_path):
             ),
         )
     }
-    repository, dispatcher = _build_dispatcher(tmp_path, workflows)
+    repository, dispatcher, _ = _build_dispatcher(tmp_path, workflows)
     run = repository.enqueue_run(
         workflow_id="dummy_workflow",
         trigger_type=TriggerType.MANUAL,
@@ -100,7 +102,7 @@ def test_dispatch_once_skips_remaining_steps_after_failure(tmp_path):
             ),
         )
     }
-    repository, dispatcher = _build_dispatcher(tmp_path, workflows)
+    repository, dispatcher, _ = _build_dispatcher(tmp_path, workflows)
     run = repository.enqueue_run(
         workflow_id="dummy_workflow",
         trigger_type=TriggerType.MANUAL,
@@ -136,7 +138,7 @@ def test_dispatch_once_executes_step_with_run_summary_context(tmp_path):
             ),
         )
     }
-    repository, dispatcher = _build_dispatcher(tmp_path, workflows)
+    repository, dispatcher, _ = _build_dispatcher(tmp_path, workflows)
     run = repository.enqueue_run(
         workflow_id="event_workflow",
         trigger_type=TriggerType.EVENT,
@@ -153,3 +155,84 @@ def test_dispatch_once_executes_step_with_run_summary_context(tmp_path):
     assert updated_run.result_summary == {
         "compaction_targets": [{"year": 2026, "month": 4}]
     }
+
+
+def test_dispatch_once_requeues_run_when_lock_is_active(tmp_path):
+    """同一 workflow lock が active なら run を failed にせず queued に戻す。"""
+    # Arrange
+    workflows = {
+        "dummy_workflow": WorkflowDefinition(
+            workflow_id="dummy_workflow",
+            name="Dummy workflow",
+            description="Dummy workflow for tests",
+            concurrency_key="shared-lock",
+            steps=(
+                StepDefinition(
+                    step_id="succeed",
+                    step_name="Succeed",
+                    executor_type=StepExecutorType.INPROCESS,
+                    callable_ref="pipelines.tests.support.dummy_steps:succeed",
+                ),
+            ),
+        )
+    }
+    repository, dispatcher, lock_manager = _build_dispatcher(tmp_path, workflows)
+    run = repository.enqueue_run(
+        workflow_id="dummy_workflow",
+        trigger_type=TriggerType.MANUAL,
+        queued_reason=QueuedReason.MANUAL_REQUEST,
+    )
+    lock_manager.acquire(lock_key="shared-lock", run_id="other-run")
+
+    # Act
+    dispatched = dispatcher.dispatch_once()
+    updated_run = repository.get_run(run.run_id)
+    steps = repository.list_step_runs(run.run_id)
+
+    # Assert
+    assert dispatched is False
+    assert updated_run.status == WorkflowRunStatus.QUEUED
+    assert updated_run.started_at is None
+    assert updated_run.last_error_message == "workflow lock is active: shared-lock"
+    assert steps == []
+
+
+def test_dispatch_once_marks_inprocess_step_failed_on_timeout(tmp_path):
+    """in-process callable でも step.timeout_seconds を超えたら failed にする。"""
+    # Arrange
+    workflows = {
+        "timeout_workflow": WorkflowDefinition(
+            workflow_id="timeout_workflow",
+            name="Timeout workflow",
+            description="Timeout workflow for tests",
+            steps=(
+                StepDefinition(
+                    step_id="sleep",
+                    step_name="Sleep",
+                    executor_type=StepExecutorType.INPROCESS,
+                    callable_ref="pipelines.tests.support.dummy_steps:sleep_too_long",
+                    timeout_seconds=1,
+                ),
+            ),
+        )
+    }
+    repository, dispatcher, _ = _build_dispatcher(tmp_path, workflows)
+    run = repository.enqueue_run(
+        workflow_id="timeout_workflow",
+        trigger_type=TriggerType.MANUAL,
+        queued_reason=QueuedReason.MANUAL_REQUEST,
+    )
+
+    # Act
+    dispatched = dispatcher.dispatch_once()
+    updated_run = repository.get_run(run.run_id)
+    steps = repository.list_step_runs(run.run_id)
+
+    # Assert
+    assert dispatched is True
+    assert updated_run.status == WorkflowRunStatus.FAILED
+    assert updated_run.last_error_message == "step failed: sleep"
+    assert len(steps) == 1
+    assert steps[0].status == StepRunStatus.FAILED
+    assert steps[0].exit_code is None
+    assert "TimeoutError: step timed out after 1s" in (steps[0].stderr_tail or "")

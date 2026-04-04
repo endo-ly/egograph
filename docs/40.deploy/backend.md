@@ -232,6 +232,10 @@ sudo nano /etc/systemd/system/egograph-pipelines.service
 sudo nano /opt/egograph/repo/pipelines/.env
 ```
 
+Browser History 拡張機能や管理 API に API Key 認証をかける場合は、
+`pipelines/.env` に `PIPELINES_API_KEY` を設定する。
+未設定なら `/v1/health` 以外の API も認証なしで受け付ける。
+
 起動確認:
 
 ```bash

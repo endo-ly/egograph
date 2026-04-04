@@ -429,6 +429,25 @@ class WorkflowStateRepository:
             ).fetchone()
         return _map_run(updated)
 
+    def requeue_run(self, run_id: str, *, reason: str | None = None) -> WorkflowRun:
+        """running に遷移させた run を再度 queued に戻す。"""
+        with self._mutex, self._conn:
+            self._conn.execute(
+                """
+                UPDATE workflow_runs
+                SET status = ?,
+                    started_at = NULL,
+                    last_error_message = ?
+                WHERE run_id = ?
+                """,
+                (
+                    WorkflowRunStatus.QUEUED.value,
+                    reason,
+                    run_id,
+                ),
+            )
+        return self.get_run(run_id)
+
     def get_run(self, run_id: str) -> WorkflowRun:
         """workflow run を1件取得する。"""
         with self._mutex:

@@ -9,6 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from pipelines.domain.errors import WorkflowDisabledError
 from pipelines.domain.schedule import MisfirePolicy, TriggerSpec, TriggerSpecType
 from pipelines.domain.workflow import QueuedReason, TriggerType, WorkflowDefinition
 from pipelines.infrastructure.db.repositories import WorkflowStateRepository
@@ -117,13 +118,21 @@ class ScheduleTriggerApp:
 
     def _enqueue_schedule_run(self, schedule_id: str, workflow_id: str) -> None:
         now = datetime.now(tz=UTC)
-        self._repository.enqueue_run(
-            workflow_id=workflow_id,
-            trigger_type=TriggerType.SCHEDULE,
-            queued_reason=QueuedReason.SCHEDULE_TICK,
-            requested_by="system",
-            scheduled_at=now,
-        )
+        try:
+            self._repository.enqueue_run(
+                workflow_id=workflow_id,
+                trigger_type=TriggerType.SCHEDULE,
+                queued_reason=QueuedReason.SCHEDULE_TICK,
+                requested_by="system",
+                scheduled_at=now,
+            )
+        except WorkflowDisabledError:
+            self._repository.update_schedule_state(
+                schedule_id=schedule_id,
+                next_run_at=None,
+                last_scheduled_at=now,
+            )
+            return
         job = self._scheduler.get_job(schedule_id)
         self._repository.update_schedule_state(
             schedule_id=schedule_id,

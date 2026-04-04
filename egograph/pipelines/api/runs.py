@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 
-from pipelines.api.dependencies import get_service
+from pipelines.api.dependencies import get_service, verify_api_key
 from pipelines.domain.errors import PipelinesError
 from pipelines.service import PipelineService
 
@@ -11,13 +11,20 @@ router = APIRouter(prefix="/v1/runs", tags=["runs"])
 
 
 @router.get("")
-def list_runs(service: PipelineService = Depends(get_service)) -> list[dict]:
+def list_runs(
+    _: None = Depends(verify_api_key),
+    service: PipelineService = Depends(get_service),
+) -> list[dict]:
     """run 一覧を取得する。"""
     return [run.__dict__ for run in service.list_runs()]
 
 
 @router.get("/{run_id}")
-def get_run(run_id: str, service: PipelineService = Depends(get_service)) -> dict:
+def get_run(
+    run_id: str,
+    _: None = Depends(verify_api_key),
+    service: PipelineService = Depends(get_service),
+) -> dict:
     """run 詳細を取得する。"""
     try:
         detail = service.get_run_detail(run_id)
@@ -33,6 +40,7 @@ def get_run(run_id: str, service: PipelineService = Depends(get_service)) -> dic
 def get_step_log(
     run_id: str,
     step_id: str,
+    _: None = Depends(verify_api_key),
     service: PipelineService = Depends(get_service),
 ) -> str:
     """step ログ本文を取得する。"""
@@ -45,6 +53,7 @@ def get_step_log(
 @router.post("/{run_id}/retry", status_code=201)
 def retry_run(
     run_id: str,
+    _: None = Depends(verify_api_key),
     service: PipelineService = Depends(get_service),
 ) -> dict:
     """再実行 run を queue に積む。"""
@@ -57,6 +66,7 @@ def retry_run(
 @router.post("/{run_id}/cancel")
 def cancel_run(
     run_id: str,
+    _: None = Depends(verify_api_key),
     service: PipelineService = Depends(get_service),
 ) -> dict:
     """queued run を cancel する。"""

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +15,7 @@ class PipelinesConfig(BaseSettings):
     logs_root: Path = Path("data/pipelines/logs")
     host: str = "127.0.0.1"
     port: int = 8010
+    api_key: SecretStr | None = None
     timezone: str = "UTC"
     dispatcher_poll_seconds: float = 1.0
     lock_lease_seconds: int = 300

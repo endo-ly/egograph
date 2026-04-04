@@ -1,5 +1,7 @@
 """In-process test steps."""
 
+import time
+
 from pipelines.domain.workflow import WorkflowRun
 
 
@@ -19,3 +21,8 @@ def echo_run_summary(run: WorkflowRun) -> dict:
     """run.result_summary を返すテスト step。"""
     print(f"summary={run.result_summary}")
     return run.result_summary or {}
+
+
+def sleep_too_long() -> None:
+    """timeout テスト用に長時間 sleep する。"""
+    time.sleep(10)

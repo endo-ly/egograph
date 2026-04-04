@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import ValidationError
 
-from pipelines.api.dependencies import get_service
+from pipelines.api.dependencies import get_service, verify_api_key
 from pipelines.service import PipelineService
 from pipelines.sources.browser_history.pipeline import (
     BrowserHistoryPayload,
@@ -19,6 +19,7 @@ router = APIRouter(
 @router.post("", status_code=202)
 def ingest_browser_history_endpoint(
     payload: dict,
+    _: None = Depends(verify_api_key),
     service: PipelineService = Depends(get_service),
 ) -> dict:
     """Browser History payload を保存し、即時 compact run を enqueue する。"""

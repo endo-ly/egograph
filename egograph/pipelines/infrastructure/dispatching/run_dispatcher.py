@@ -96,12 +96,11 @@ class RunDispatcher:
                 run_id=run.run_id,
             )
         except WorkflowLockUnavailableError as exc:
-            self._repository.update_run_result(
+            self._repository.requeue_run(
                 run_id=run.run_id,
-                status=WorkflowRunStatus.FAILED,
-                error_message=str(exc),
+                reason=str(exc),
             )
-            return True
+            return False
 
         heartbeat_stop = threading.Event()
         heartbeat_thread = threading.Thread(
