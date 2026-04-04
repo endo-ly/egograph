@@ -102,6 +102,23 @@ def get_workflows() -> dict[str, WorkflowDefinition]:
             misfire_policy=MisfirePolicy.COALESCE_LATEST,
         ),
         WorkflowDefinition(
+            workflow_id="google_activity_ingest_workflow",
+            name="Google Activity ingest workflow",
+            description="Collect YouTube watch history from Google MyActivity",
+            steps=(
+                _inprocess_step(
+                    "run_google_activity_ingest",
+                    "Run Google Activity ingest",
+                    "pipelines.sources.google_activity.main:main",
+                    timeout_seconds=3600,
+                ),
+            ),
+            triggers=(TriggerSpec(TriggerSpecType.CRON, "0 14 * * *"),),
+            concurrency_key="google_activity_ingest_workflow",
+            timeout_seconds=7200,
+            misfire_policy=MisfirePolicy.COALESCE_LATEST,
+        ),
+        WorkflowDefinition(
             workflow_id="local_mirror_sync_workflow",
             name="Local compacted parquet mirror sync",
             description="Sync compacted parquet files from R2 to local mirror",

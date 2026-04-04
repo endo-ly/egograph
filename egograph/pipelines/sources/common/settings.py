@@ -1,6 +1,7 @@
 """Environment variable settings loader for pipelines sources."""
 
 import logging
+import os
 from collections.abc import Callable
 from typing import TypeVar
 
@@ -21,6 +22,9 @@ from pipelines.sources.common.config import (
 
 T = TypeVar("T")
 
+USE_ENV_FILE = os.getenv("USE_ENV_FILE", "true").lower() in ("true", "1", "yes")
+PIPELINES_ENV_FILES = ["egograph/pipelines/.env"] if USE_ENV_FILE else []
+
 
 def _try_load_config(
     loader: Callable[[], T],
@@ -40,7 +44,7 @@ def _try_load_config(
 
 class _RuntimeBaseSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=None,
+        env_file=PIPELINES_ENV_FILES,
         env_file_encoding="utf-8",
         extra="ignore",
     )

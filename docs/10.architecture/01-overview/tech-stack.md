@@ -8,11 +8,11 @@
 
 | コンポーネント | 言語/FW     | パッケージマネージャー | 主要ライブラリ                        |
 | -------------- | ----------- | ---------------------- | ------------------------------------- |
-| **ingest/**    | Python 3.13 | uv                     | Spotipy, requests, DuckDB, boto3, pyarrow |
-| **backend/**   | Python 3.13 | uv                     | FastAPI, Uvicorn, DuckDB              |
-| **frontend/**  | Kotlin 2.2.21  | Gradle                 | Compose Multiplatform, Voyager, Koin, Ktor, FCM |
+| **egograph/pipelines/** | Python 3.13   | uv     | FastAPI, APScheduler, SQLite, Spotipy, requests, DuckDB, boto3, pyarrow |
+| **egograph/backend/**   | Python 3.13   | uv     | FastAPI, Uvicorn, DuckDB |
+| **frontend/**           | Kotlin 2.2.21 | Gradle | Compose Multiplatform, Voyager, Koin, Ktor, FCM |
 
-- **Python Workspace**: uv で ingest, backend を一元管理
+- **Python Workspace**: uv で pipelines, backend を一元管理
 - **Frontend**: Kotlin Multiplatform (Gradle)
 
 ---
@@ -46,17 +46,20 @@
 
 ---
 
-## 2. Ingest Pipeline（データ収集）
+## 2. Pipelines Service（データ収集・ジョブ管理）
 
 - **Language**: Python 3.13
-- **実行環境**: GitHub Actions（定期実行: GitHub 1日1回、Spotify 5回/日）
+- **実行環境**: 常駐 `egograph-pipelines.service`
+- **ジョブ管理**: APScheduler + SQLite + Dispatcher/Executor
 - **主要ライブラリ**:
+  - `fastapi`: 管理 API / Browser History ingest API
+  - `apscheduler`: 定期 trigger
   - `spotipy`: Spotify API クライアント
   - `requests`: HTTP クライアント（GitHub API 用）
   - `pyarrow`: Parquet ファイル作成
   - `boto3`: R2 アップロード
   - `duckdb`: データ変換・検証
-- **特性**: Idempotent（冪等性）、Stateful（カーソル管理）
+- **特性**: Idempotent（冪等性）、Stateful（R2 カーソル + SQLite 実行管理）
 
 ---
 
@@ -105,8 +108,12 @@
 | `ci-backend.yml`         | `backend/**`  | Backend テスト・Lint    |
 | `ci-ingest.yml`          | `pipelines/**` | Pipelines テスト・Lint  |
 | `ci-frontend.yml`        | `frontend/**` | Frontend テスト (JUnit) |
-| `job-ingest-spotify.yml` | Cron (5回/日) | Spotify データ収集      |
-| `job-ingest-github.yml`  | Cron (1日1回) | GitHub データ収集       |
+| `deploy-backend.yml`     | `main` push   | backend/pipelines デプロイ |
+
+### Pipelines 定期実行
+
+Spotify / GitHub / Google Activity / local mirror sync の定期実行は
+GitHub Actions ではなく、`egograph/pipelines` の APScheduler が担う。
 
 ### テストツール
 
@@ -144,7 +151,7 @@
 
 ### モノレポ + uv workspace
 
-1. **コンポーネント分離**: 各層（ingest/backend/frontend）が独立した責任範囲
+1. **コンポーネント分離**: 各層（pipelines/backend/frontend）が独立した責任範囲
 2. **依存関係の透明性**: workspace 依存で Python パッケージの共通基盤を明示
 3. **開発効率**: `uv sync` 一発で全 Python パッケージをセットアップ
 4. **CI/CD の最適化**: コンポーネント別テストで高速フィードバック

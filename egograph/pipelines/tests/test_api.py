@@ -23,11 +23,13 @@ def test_management_api_lists_workflows_and_manual_runs(tmp_path):
 
         workflows_response = client.get("/v1/workflows")
         assert workflows_response.status_code == 200
-        workflows = workflows_response.json()
-        assert any(
-            workflow["workflow_id"] == "spotify_ingest_workflow"
-            for workflow in workflows
-        )
+        workflow_ids = {
+            workflow["workflow_id"]
+            for workflow in workflows_response.json()
+        }
+        assert "spotify_ingest_workflow" in workflow_ids
+        assert "github_ingest_workflow" in workflow_ids
+        assert "google_activity_ingest_workflow" in workflow_ids
 
         disable_response = client.post("/v1/workflows/spotify_ingest_workflow/disable")
         assert disable_response.status_code == 200

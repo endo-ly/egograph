@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 環境変数で .env ファイルの使用を制御（デフォルトは使用）
 USE_ENV_FILE = os.getenv("USE_ENV_FILE", "true").lower() in ("true", "1", "yes")
-BACKEND_ENV_FILES = ["backend/.env"] if USE_ENV_FILE else []
+BACKEND_ENV_FILES = ["egograph/backend/.env"] if USE_ENV_FILE else []
 
 
 class R2Config(BaseModel):

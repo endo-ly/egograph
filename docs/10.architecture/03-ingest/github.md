@@ -182,21 +182,20 @@ s3://ego-graph/
 
 ### 11.1 ワークフロー
 
-- **ワークフロー**: `job-ingest-github.yml`
-- **実行タイミング**: Cron (1日1回: 15:00 UTC = 00:00 JST 深夜)
+- **ワークフロー**: `github_ingest_workflow`, `github_compact_workflow`
+- **実行基盤**: `egograph/pipelines` 常駐サービスの APScheduler
+- **実行タイミング**: 1日1回 (`0 15 * * *`, 15:00 UTC = 00:00 JST 深夜)
 - **増分取り込み**: R2 内のカーソル (`state/github_worklog_ingest_state.json`) で管理
 
 ### 11.2 ディレクトリ構成
 
 ```text
-ingest/github/
+egograph/pipelines/sources/github/
 ├── __init__.py
-├── main.py           # エントリーポイント
 ├── collector.py      # GitHub API データ取得
 ├── transform.py      # データ変換・正規化
 ├── storage.py        # R2 アップロード
-├── pipeline.py       # ETL パイプライン統合
-└── compact.py        # Parquet 最適化
+└── pipeline.py       # ingest / compact エントリーポイント
 ```
 
 ### 11.3 認証

@@ -334,26 +334,26 @@ updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 - [YouTube視聴履歴収集の技術選定](../../20.technical_selections/youtube-history-collection.md)
 
 ### 参考実装
-- `ingest/spotify/`: Spotify収集パイプライン（アーキテクチャの参考）
+- `egograph/pipelines/sources/spotify/`: Spotify収集パイプライン（アーキテクチャの参考）
 - [google_takeout_parser](https://github.com/seanbreckenridge/google_takeout_parser): MyActivityパーサーの参考実装
 
 ### 実装構造（予定）
 ```
-ingest/google_activity/
+egograph/pipelines/sources/google_activity/
 ├── main.py                    # アカウントループのエントリポイント
-├── config.py                  # アカウント設定管理
 ├── collector.py               # Playwrightスクレイパー
-├── parsers/
-│   ├── base.py               # 基底パーサー
-│   └── youtube.py            # YouTube Activity → Parquet
-├── storage.py                # R2保存（account_id対応）
+├── config.py                  # アカウント設定管理
+├── transform.py               # YouTube Activity → Parquet
+├── youtube_api.py             # YouTube Data API メタデータ補完
+├── storage.py                 # R2保存（account_id対応）
+├── pipeline.py                # ingest / compact エントリーポイント
 ├── schema.py                 # スキーマ定義
 └── scripts/
     └── export_cookies.py     # Cookie取得スクリプト
-
-.github/workflows/
-└── job-ingest-google-youtube.yml
 ```
+
+定期実行は `google_activity_ingest_workflow` が担い、
+旧 `.github/workflows/job-ingest-google-youtube.yml` は削除済み。
 
 ### Spotify実装との比較
 

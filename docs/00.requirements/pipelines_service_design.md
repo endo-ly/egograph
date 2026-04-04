@@ -1061,8 +1061,9 @@ egograph/
 ### Phase 2: GitHub Actions schedule / systemd timer を pipelines へ移行
 
 - `.github/workflows/job-ingest-spotify.yml` と
-  `.github/workflows/job-ingest-github.yml` の `schedule` を止める
-  または手動 fallback 専用に縮退させる
+  `.github/workflows/job-ingest-github.yml` と
+  `.github/workflows/job-ingest-google-youtube.yml` を削除し、
+  ingest 定期実行の入口を `pipelines` に一本化する
 - `egograph-parquet-sync.timer` を廃止し、
   `local_mirror_sync_workflow` に寄せる
 - `egograph-backend.service` の `ExecStartPre` sync を外す
