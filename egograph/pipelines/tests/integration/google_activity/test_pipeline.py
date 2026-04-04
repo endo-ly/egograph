@@ -118,7 +118,6 @@ SAMPLE_API_CHANNELS = [
 ]
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_full_pipeline_success():
     """パイプライン全体が正常に動作することを検証する。
@@ -199,7 +198,6 @@ async def test_full_pipeline_success():
     assert latest_watched_at == datetime(2025, 1, 15, 13, 45, 0, tzinfo=timezone.utc)
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_pipeline_with_multiple_months():
     """複数月にまたがるデータが正しくパーティショニングされることを検証する。"""
@@ -267,7 +265,6 @@ async def test_pipeline_with_multiple_months():
     assert (2025, 2) in years_months
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_incremental_fetch_with_state():
     """インジェスト状態に基づく増分取得が動作することを検証する。"""
@@ -349,7 +346,6 @@ async def test_incremental_fetch_with_state():
     assert latest == datetime(2025, 1, 15, 14, 0, 0, tzinfo=timezone.utc)
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_collector_failure_isolation():
     """Collector の失敗が他のコンポーネントに影響しないことを検証する。"""
@@ -402,7 +398,6 @@ async def test_collector_failure_isolation():
     mock_storage.save_ingest_state.assert_not_called()
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_storage_failure_handling():
     """Storage の失敗がパイプライン結果に正しく反映されることを検証する。"""
@@ -453,7 +448,6 @@ async def test_storage_failure_handling():
     mock_storage.save_parquet.assert_not_called()
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_no_new_data_early_return():
     """新しいデータがない場合、早期リターンすることを検証する。"""
@@ -499,7 +493,6 @@ async def test_no_new_data_early_return():
     mock_storage.save_ingest_state.assert_not_called()
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_sequential_account_execution():
     """複数アカウントが順次実行されることを検証する。"""
@@ -563,7 +556,6 @@ async def test_sequential_account_execution():
     assert all(result.success for result in results.values())
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_account_independence_on_failure():
     """1つのアカウントの失敗が他のアカウントの実行に影響しないことを検証する。"""
@@ -646,7 +638,6 @@ async def test_account_independence_on_failure():
     assert results["account3"].saved_count == 1
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_transform_integration():
     """Transform モジュールの動作を検証する。
@@ -690,7 +681,6 @@ async def test_transform_integration():
     assert event1["watch_id"] != event2["watch_id"]
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_video_channel_api_integration():
     """YouTube API Client による動画・チャンネルメタデータ取得の統合を検証する。
@@ -730,7 +720,6 @@ async def test_video_channel_api_integration():
     mock_client.get_channels.assert_called_once_with(channel_ids)
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_end_to_end_with_api_enrichment():
     """Collector → Transform → API Client → Storage の
@@ -786,7 +775,6 @@ async def test_end_to_end_with_api_enrichment():
     assert mock_storage.save_master_parquet.call_count == 2
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_max_items_limit():
     """max_items 制限が正しく動作することを検証する。"""

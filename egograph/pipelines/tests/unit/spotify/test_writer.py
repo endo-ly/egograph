@@ -1,7 +1,7 @@
 """DuckDB ライターのテスト。"""
 
 from pipelines.sources.spotify.writer import SpotifyDuckDBWriter
-from pipelines.tests.ingest.fixtures.spotify_responses import get_mock_recently_played
+from pipelines.tests.fixtures.spotify_responses import get_mock_recently_played
 
 
 def test_upsert_plays(temp_db):

@@ -233,5 +233,5 @@ egograph/pipelines/sources/github/
 ## 参考
 
 - [GitHub REST API Documentation](https://docs.github.com/rest)
-- [Ingest 共通アーキテクチャ](./README.md)
+- [Pipelines Service Architecture](./README.md)
 - [データ戦略](../01-overview/data-strategy.md)

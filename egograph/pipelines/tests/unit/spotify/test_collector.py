@@ -6,7 +6,7 @@ import responses
 
 from pipelines.sources.common.utils import iso8601_to_unix_ms
 from pipelines.sources.spotify.collector import SpotifyCollector
-from pipelines.tests.ingest.fixtures.spotify_responses import (
+from pipelines.tests.fixtures.spotify_responses import (
     INCREMENTAL_TEST_TIMESTAMPS,
     get_mock_recently_played,
     get_mock_recently_played_with_timestamps,

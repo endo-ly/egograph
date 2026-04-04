@@ -1,4 +1,4 @@
-"""ingest テスト用の共有 pytest フィクスチャ。"""
+"""テスト用の共有 pytest フィクスチャ。"""
 
 import pytest
 

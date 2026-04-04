@@ -9,7 +9,7 @@ import responses
 from tenacity import RetryError
 
 from pipelines.sources.github.collector import GitHubWorklogCollector
-from pipelines.tests.ingest.fixtures.github_responses import (
+from pipelines.tests.fixtures.github_responses import (
     get_mock_commit_detail,
     get_mock_pr_commits,
     get_mock_pr_reviews,

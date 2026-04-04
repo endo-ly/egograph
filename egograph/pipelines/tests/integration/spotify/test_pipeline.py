@@ -12,14 +12,13 @@ from pipelines.sources.spotify import ingest_pipeline as spotify_pipeline
 from pipelines.sources.spotify.collector import SpotifyCollector
 from pipelines.sources.spotify.schema import SpotifySchema
 from pipelines.sources.spotify.writer import SpotifyDuckDBWriter
-from pipelines.tests.ingest.fixtures.spotify_responses import (
+from pipelines.tests.fixtures.spotify_responses import (
     INCREMENTAL_TEST_TIMESTAMPS,
     get_mock_recently_played,
     get_mock_recently_played_with_timestamps,
 )
 
 
-@pytest.mark.integration
 @responses.activate
 def test_full_pipeline(tmp_path):
     """収集から保存までの完全なパイプラインをテストする。"""
@@ -90,7 +89,6 @@ def test_full_pipeline(tmp_path):
     conn.close()
 
 
-@pytest.mark.integration
 def test_idempotent_pipeline(tmp_path):
     """パイプラインがべき等であることをテストする - 2回実行してもデータが重複しない。"""
     # Arrange: DB とテストデータの準備
@@ -120,7 +118,6 @@ def test_idempotent_pipeline(tmp_path):
     assert stats_1["total_tracks"] == 2
 
 
-@pytest.mark.integration
 @responses.activate
 def test_incremental_pipeline_run(tmp_path):
     """増分取得モードでのパイプライン実行をテストする。"""
@@ -200,7 +197,6 @@ def test_incremental_pipeline_run(tmp_path):
     conn.close()
 
 
-@pytest.mark.integration
 def test_master_enrichment_flow():
     """再生履歴から新規IDのみマスター取得されることをテストする。"""
     # Arrange: 再生履歴とマスターのモックを準備
