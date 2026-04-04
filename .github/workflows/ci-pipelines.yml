@@ -31,7 +31,10 @@ jobs:
 
       - name: Run tests
         run: |
-          uv run pytest egograph/pipelines/tests -v --cov=pipelines --cov-report=xml --cov-report=term
+          uv run pytest egograph/pipelines/tests/unit \
+                        egograph/pipelines/tests/integration \
+                        egograph/pipelines/tests/e2e \
+                        -v --cov=pipelines --cov-report=xml --cov-report=term
 
       # Future: Enable Codecov when needed (requires CODECOV_TOKEN in GitHub Secrets)
       # - name: Upload coverage

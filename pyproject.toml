@@ -28,7 +28,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --strict-markers --tb=short"
 markers = [
-    "integration: Integration tests (deselect with '-m \"not integration\"')",
+    "live: Live API tests (requires credentials, excluded from CI)",
 ]
 
 [dependency-groups]

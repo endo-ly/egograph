@@ -64,7 +64,9 @@ uv run ruff format .              # Format
 # === Pipelines ===
 uv run python -m pipelines.main serve
 uv run python -m pipelines.main workflow list --json
-uv run pytest egograph/pipelines/tests --cov=pipelines
+uv run pytest egograph/pipelines/tests/unit egograph/pipelines/tests/integration egograph/pipelines/tests/e2e --cov=pipelines  # CI用
+# Live（手動・要認証）
+uv run pytest egograph/pipelines/tests/e2e                             
 
 # === Backend ===
 tmux new-session -d -s fastapi 'uv run python -m egograph.backend.main'
