@@ -12,7 +12,7 @@ Tailscale HTTPS による公開はオプションとして記載する。
 
 ## 2. インストール
 
-ワンライナー、プリビルドバイナリ配置、`cargo install` の 3 通りの導線がある。
+ワンライナー、プリビルドバイナリ配置、ソースビルドの 3 通りの導線がある。
 
 ### 2.1 ワンライナーインストール（推奨）
 
@@ -55,7 +55,7 @@ sudo mv egopulse /usr/local/bin/egopulse
 egopulse --version
 ```
 
-### 2.3 cargo install（ソースビルド）
+### 2.3 ソースビルド
 
 Rust toolchain が必要。未導入の場合は [rustup](https://rustup.rs/) でインストールする。
 
@@ -76,12 +76,13 @@ source ~/.nvm/nvm.sh
 nvm install --lts
 ```
 
-ビルド & インストール:
+ビルド:
 
 ```bash
 git clone https://github.com/endo-ava/ego-graph.git
 cd ego-graph
-cargo install --path egopulse --locked
+cargo build --release -p egopulse
+sudo install -m 0755 target/release/egopulse /usr/local/bin/egopulse
 ```
 
 確認:
@@ -90,7 +91,7 @@ cargo install --path egopulse --locked
 egopulse --version
 ```
 
-`cargo install --path egopulse --locked` を再実行すると、インストール済みバイナリが更新される。
+更新時も同じ手順で `target/release/egopulse` を `/usr/local/bin/egopulse` に上書きする。
 
 ## 3. 設定
 
@@ -207,7 +208,7 @@ ProtectHome=true
 WantedBy=multi-user.target
 ```
 
-> `cargo install` でインストールした場合は `ExecStart` を `/root/.cargo/bin/egopulse` に変更し、`Environment=PATH=/root/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin` を追加してください。
+> ソースビルド時も `ExecStart` は `/usr/local/bin/egopulse` のままにし、`sudo install -m 0755 target/release/egopulse /usr/local/bin/egopulse` で配置してください。`~/.cargo/bin` への `cargo install` は配布版と競合しやすいため非推奨です。
 
 ### 4.3 起動・確認
 
@@ -281,12 +282,13 @@ sudo mv egopulse /usr/local/bin/egopulse
 egopulse gateway restart
 ```
 
-### cargo install の場合
+### ソースビルドの場合
 
 ```bash
 cd /path/to/ego-graph
 git pull
-cargo install --path egopulse --locked
+cargo build --release -p egopulse
+sudo install -m 0755 target/release/egopulse /usr/local/bin/egopulse
 egopulse gateway restart
 ```
 

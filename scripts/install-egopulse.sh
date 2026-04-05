@@ -213,7 +213,8 @@ main() {
   if [ -z "$asset_url" ]; then
     err "No prebuilt binary found for ${os}/${arch} in the latest GitHub release."
     err "Use a separate install method instead:"
-    err "  Build from source: cd ego-graph && cargo install --path egopulse --locked"
+    err "  Build from source: cd ego-graph && cargo build --release -p egopulse"
+    err "  Then install it: sudo install -m 0755 target/release/egopulse /usr/local/bin/egopulse"
     err "  Releases: https://github.com/${REPO}/releases"
     exit 1
   fi
