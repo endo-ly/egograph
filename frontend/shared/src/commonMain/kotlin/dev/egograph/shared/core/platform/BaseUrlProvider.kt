@@ -2,8 +2,6 @@ package dev.egograph.shared.core.platform
 
 expect fun getDefaultBaseUrl(): String
 
-expect fun getDefaultGatewayBaseUrl(): String
-
 /**
  * APIのベースURLを正規化する。
  *

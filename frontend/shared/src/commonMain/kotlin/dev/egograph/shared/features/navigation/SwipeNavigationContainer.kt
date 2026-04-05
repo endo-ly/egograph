@@ -8,21 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 
-/**
- * スワイプジェスチャーでViewを切り替えるコンテナ
- *
- * @param activeView 現在のアクティブなView
- * @param onSwipeToSidebar スワイプでサイドバーへ遷移するコールバック
- * @param onSwipeToTerminal スワイプでターミナルへ遷移するコールバック
- * @param onSwipeToChat スワイプでチャットへ遷移するコールバック
- * @param content 表示するコンテンツ
- */
 @Composable
 fun SwipeNavigationContainer(
     activeView: MainView,
     onSwipeToSidebar: () -> Unit,
-    onSwipeToTerminal: () -> Unit,
-    onSwipeToChat: () -> Unit,
+    onSwipeToOther: () -> Unit,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
@@ -54,21 +44,10 @@ fun SwipeNavigationContainer(
                                 }
                                 activeView == MainView.Chat && accumulatedDragX <= -swipeThreshold -> {
                                     handled = true
-                                    onSwipeToTerminal()
+                                    onSwipeToOther()
                                     change.consume()
                                 }
-                                activeView == MainView.Terminal &&
-                                    (accumulatedDragX >= swipeThreshold || accumulatedDragX <= -swipeThreshold) -> {
-                                    handled = true
-                                    onSwipeToChat()
-                                    change.consume()
-                                }
-                                activeView == MainView.TerminalSession &&
-                                    (accumulatedDragX >= swipeThreshold || accumulatedDragX <= -swipeThreshold) -> {
-                                    handled = true
-                                    onSwipeToChat()
-                                    change.consume()
-                                }
+                                else -> {}
                             }
                         },
                     )

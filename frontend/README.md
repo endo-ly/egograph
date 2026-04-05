@@ -43,7 +43,6 @@ frontend/
 │   │   │   │   ├── ChatState.kt
 │   │   │   │   ├── ChatEffect.kt
 │   │   │   │   └── components/  # チャット専用コンポーネント
-│   │   │   ├── terminal/        # ターミナル機能
 │   │   │   ├── settings/        # 設定画面
 │   │   │   ├── sidebar/         # サイドバー
 │   │   │   ├── systemprompt/    # システムプロンプト編集

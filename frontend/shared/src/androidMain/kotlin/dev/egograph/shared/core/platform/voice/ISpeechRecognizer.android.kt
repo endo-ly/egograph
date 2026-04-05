@@ -1,6 +1,5 @@
-package dev.egograph.shared.core.platform.terminal
+package dev.egograph.shared.core.platform.voice
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -20,19 +19,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import java.util.Locale
 
-/**
- * Android音声認識実装
- *
- * AndroidのSpeechRecognizer APIを使用して音声認識を行う。
- * RECORD_AUDIOパーミッションが必要。
- */
 actual fun createSpeechRecognizer(): ISpeechRecognizer = AndroidSpeechRecognizer()
 
-/**
- * Android音声認識の実装クラス
- *
- * 確定結果のみをストリームに流し、停止要求があるまで連続で再開する。
- */
 class AndroidSpeechRecognizer : ISpeechRecognizer {
     private var speechRecognizer: SpeechRecognizer? = null
     private var keepListening: Boolean = false
@@ -60,38 +48,24 @@ class AndroidSpeechRecognizer : ISpeechRecognizer {
                 }
 
             fun restartListening() {
-                if (!keepListening) {
-                    return
-                }
+                if (!keepListening) return
                 speechRecognizer?.startListening(intent)
             }
 
             val listener =
                 object : RecognitionListener {
-                    override fun onReadyForSpeech(params: Bundle?) {
-                        // 音声認識の準備完了
-                    }
+                    override fun onReadyForSpeech(params: Bundle?) {}
 
-                    override fun onBeginningOfSpeech() {
-                        // 音声入力開始
-                    }
+                    override fun onBeginningOfSpeech() {}
 
-                    override fun onRmsChanged(rmsdB: Float) {
-                        // 音量レベル変化（必要に応じてUI表示に使用）
-                    }
+                    override fun onRmsChanged(rmsdB: Float) {}
 
-                    override fun onBufferReceived(buffer: ByteArray?) {
-                        // 音声バッファ受信
-                    }
+                    override fun onBufferReceived(buffer: ByteArray?) {}
 
-                    override fun onEndOfSpeech() {
-                        // 音声入力終了
-                    }
+                    override fun onEndOfSpeech() {}
 
                     override fun onError(error: Int) {
-                        if (!keepListening && error == ERROR_CLIENT) {
-                            return
-                        }
+                        if (!keepListening && error == ERROR_CLIENT) return
                         if (error == ERROR_NO_MATCH || error == ERROR_SPEECH_TIMEOUT) {
                             restartListening()
                             return
@@ -122,15 +96,12 @@ class AndroidSpeechRecognizer : ISpeechRecognizer {
                         restartListening()
                     }
 
-                    override fun onPartialResults(partialResults: Bundle?) {
-                    }
+                    override fun onPartialResults(partialResults: Bundle?) {}
 
                     override fun onEvent(
                         eventType: Int,
                         params: Bundle?,
-                    ) {
-                        // イベント処理
-                    }
+                    ) {}
                 }
 
             speechRecognizer?.setRecognitionListener(listener)
@@ -151,13 +122,4 @@ class AndroidSpeechRecognizer : ISpeechRecognizer {
         speechRecognizer?.destroy()
         speechRecognizer = null
     }
-}
-
-/**
- * 現在のアクティビティを保持するオブジェクト
- *
- * Android側でMainActivityから設定する必要がある。
- */
-object ActivityRecorder {
-    var currentActivity: Context? = null
 }
