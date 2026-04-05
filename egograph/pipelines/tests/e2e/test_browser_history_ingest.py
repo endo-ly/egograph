@@ -121,6 +121,12 @@ def test_browser_history_ingest_api_executes_compaction_pipeline_end_to_end(
 ):
     """Browser History POST から compacted parquet 保存まで通しで実行できる。"""
     # Arrange
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y-%m-%d")
+    time_str = now.strftime("%H:%M:%S")
+
     config = PipelinesConfig(
         database_path=tmp_path / "state.sqlite3",
         logs_root=tmp_path / "logs",
@@ -133,11 +139,11 @@ def test_browser_history_ingest_api_executes_compaction_pipeline_end_to_end(
         "source_device": "laptop-main",
         "browser": "chrome",
         "profile": "Default",
-        "synced_at": "2026-04-04T13:50:00.000Z",
+        "synced_at": f"{date_str}T{time_str}.000Z",
         "items": [
             {
                 "url": "https://example.com/a",
-                "visit_time": "2026-04-04T13:49:00.000Z",
+                "visit_time": f"{date_str}T{time_str}.000Z",
                 "title": "A",
                 "visit_id": "visit-1",
                 "transition": "link",
@@ -189,16 +195,20 @@ def test_browser_history_ingest_api_executes_compaction_pipeline_end_to_end(
                 raise AssertionError("browser history compaction run did not succeed")
 
         object_keys = [key for _, key in memory_s3.objects]
+        year_month = now.strftime("%Y/%m")
+        year_month_day = now.strftime("%Y/%m/%d")
         assert any(
-            key.startswith("raw/browser_history/chrome/2026/04/04/")
+            key.startswith(f"raw/browser_history/chrome/{year_month_day}/")
             for key in object_keys
         )
         assert any(
-            key.startswith("events/browser_history/page_views/year=2026/month=04/")
+            key.startswith(
+                f"events/browser_history/page_views/year={now.year}/month={now.month:02d}/"
+            )
             for key in object_keys
         )
         assert "state/browser_history/laptop-main/chrome/Default.json" in object_keys
         assert (
-            "compacted/events/browser_history/page_views/year=2026/month=04/data.parquet"
+            f"compacted/events/browser_history/page_views/year={now.year}/month={now.month:02d}/data.parquet"
             in object_keys
         )
