@@ -84,7 +84,7 @@ flowchart LR
 ---
 
 ## 参考
-- [データ戦略](../01-overview/data-strategy.md)
-- [システムアーキテクチャ](../01-overview/system-architecture.md)
+- [データ戦略](../../10.architecture/data-strategy.md)
+- [システムアーキテクチャ](../../10.architecture/system-architecture.md)
 - [テスト戦略](./testing-strategy.md)
 END-of-file

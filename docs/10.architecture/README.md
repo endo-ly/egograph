@@ -6,50 +6,13 @@ EgoGraphのシステムアーキテクチャ設計。全体構成、データモ
 
 ---
 
-## ドキュメント構成
-
-### 01-overview: 全体設計
+## ドキュメント一覧
 
 | ドキュメント | 内容 |
 |---|---|
-| [system-architecture](./01-overview/system-architecture.md) | 全体構成図、データフロー、各レイヤーの役割 |
-| [data-strategy](./01-overview/data-strategy.md) | データ戦略：ストレージ責務分離、データモデル、判断基準 |
-| [tech-stack](./01-overview/tech-stack.md) | コンポーネント別技術選定と理由 |
-
-### 02-backend: バックエンド設計
-
-| ドキュメント | 内容 |
-|---|---|
-| [architecture](./02-backend/architecture.md) | Clean Architecture (DDD) 設計 |
-| [tool-system](./02-backend/tool-system.md) | LLM Tool Use（ツール呼び出し）アーキテクチャ |
-| [streaming](./02-backend/streaming.md) | LLM ストリーミングアーキテクチャ |
-
-### 02-frontend: フロントエンド設計
-
-| ドキュメント | 内容 |
-|---|---|
-| [architecture](./02-frontend/architecture.md) | MVVMアーキテクチャ、状態管理 |
-| [chat](./02-frontend/chat.md) | チャット機能設計 |
-| [terminal](./02-frontend/terminal.md) | ターミナル機能設計 |
-| [settings](./02-frontend/settings.md) | 設定・サイドバー機能設計 |
-
-### 03-pipelines: データ収集設計
-
-| ドキュメント | 内容 |
-|---|---|
-| [README](./03-pipelines/README.md) | Pipelines Service 概要 |
-| [architecture](./03-pipelines/architecture.md) | Pipelines Service アーキテクチャ詳細 |
-| [testing-strategy](./03-pipelines/testing-strategy.md) | テスト戦略 |
-| [spotify](./03-pipelines/spotify.md) | Spotifyデータソース設計 |
-| [github](./03-pipelines/github.md) | GitHubデータソース設計 |
-| [browser-history](./03-pipelines/browser-history.md) | ブラウザ履歴データソース設計 |
-| [_template](./03-pipelines/_template.md) | データソース設計テンプレート |
-
-### 04-egopulse: AIエージェントランタイム
-
-| ドキュメント | 内容 |
-|---|---|
-| *(未作成)* | EgoPulse アーキテクチャ設計 |
+| [system-architecture](./system-architecture.md) | 全体構成図、データフロー、各レイヤーの役割 |
+| [data-strategy](./data-strategy.md) | データ戦略：ストレージ責務分離、データモデル、判断基準 |
+| [tech-stack](./tech-stack.md) | コンポーネント別技術選定一覧 |
 
 ---
 
@@ -71,11 +34,23 @@ SQLite と DuckDB / Parquet を責務で分離する。
 - 分析・集計・横断参照 → DuckDB
 - 分析用データセット・長期保存 → Parquet
 
-詳細は [data-strategy](./01-overview/data-strategy.md) を参照。
+詳細は [data-strategy](./data-strategy.md) を参照。
 
 ### 段階的実装
 
 MVPから始め、段階的に機能拡張する。
+
+---
+
+## コンポーネント別ドキュメント
+
+| コンポーネント | ドキュメント | 内容 |
+|---|---|---|
+| EgoGraph (Backend) | [20.egograph/backend/](../20.egograph/backend/) | Agent API、DDD設計、Tool System、Streaming |
+| EgoGraph (Pipelines) | [20.egograph/pipelines/](../20.egograph/pipelines/) | データ収集サービス、各データソース設計 |
+| EgoPulse | [30.egopulse/](../30.egopulse/) | AIエージェントランタイム（TUI/Web/Discord/Telegram） |
+| Frontend | [40.frontend/](../40.frontend/) | KMP Androidアプリ、MVVM設計 |
+| Deploy | [50.deploy/](../50.deploy/) | 各コンポーネントのデプロイ手順 |
 
 ---
 

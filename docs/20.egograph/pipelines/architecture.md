@@ -422,4 +422,4 @@ uv run python -m pipelines.main serve
 ## 参考
 
 - [Testing Strategy](./testing-strategy.md)
-- [データ戦略](../01-overview/data-strategy.md)
+- [データ戦略](../../10.architecture/data-strategy.md)

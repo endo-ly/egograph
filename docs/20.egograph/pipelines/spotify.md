@@ -287,4 +287,4 @@ s3://ego-graph/
 
 - [Spotify Web API Documentation](https://developer.spotify.com/documentation/web-api)
 - [Ingest 共通アーキテクチャ](./README.md)
-- [データ戦略](../01-overview/data-strategy.md)
+- [データ戦略](../../10.architecture/data-strategy.md)

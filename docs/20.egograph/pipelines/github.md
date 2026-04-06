@@ -234,4 +234,4 @@ egograph/pipelines/sources/github/
 
 - [GitHub REST API Documentation](https://docs.github.com/rest)
 - [Pipelines Service Architecture](./README.md)
-- [データ戦略](../01-overview/data-strategy.md)
+- [データ戦略](../../10.architecture/data-strategy.md)
