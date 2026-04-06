@@ -81,4 +81,4 @@ MVPから始め、段階的に機能拡張する。
 
 ## 関連ドキュメント
 
-- [技術選定詳細](../20.technical_selections/)
+- [技術選定詳細](../70.knowledge/technical-selections/)
