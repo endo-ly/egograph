@@ -126,3 +126,4 @@ cd frontend
 | Backend | [egograph/backend/README.md](./egograph/backend/README.md) |
 | EgoPulse | [egopulse/README.md](./egopulse/README.md) |
 | Frontend | [frontend/README.md](./frontend/README.md) |
+| Browser Extension | [egograph/browser-extension/chromium-history/README.md](./egograph/browser-extension/chromium-history/README.md) |

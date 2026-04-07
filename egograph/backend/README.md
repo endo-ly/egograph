@@ -1,86 +1,67 @@
 # Backend Service
 
-データアクセスと LLM エージェント機能を提供するサーバーサイドコンポーネント。
+データアクセスと LLM エージェント機能を提供する FastAPI サーバー。
 
-## Overview
-
-Backend サービスは主に 2 つの目的を果たします：
-
-1.  **Semantic Layer**: Cloudflare R2 上の compacted Parquet、またはそのローカル mirror を DuckDB でクエリする「ヘッドレス BI」レイヤーを提供します。
-2.  **Agent Runtime**: ユーザーのクエリを処理し、ツールを実行する LLM エージェント（FastAPI）をホストします。
-
-## Architecture
-
-- **Runtime**: Python 3.12+ / FastAPI
-- **Database**:
-  - **DuckDB**: インメモリ（`:memory:`）で実行されるステートレス設計。`compacted/events` / `compacted/master` を読み取ります。
-- **AI/LLM**:
-  - OpenAI, Anthropic, OpenRouter をサポート。
-  - データアクセスのための MCP ライクなツールインターフェースを実装。
-
-### Key Directories
-
-- `api/`: FastAPI のルート定義。
-- `database/`: DuckDB 接続とクエリ実行ロジック。
-- `tools/`: LLM エージェント用のツール定義。
-- `llm/`: LLM プロバイダーとの統合。
-
-## Setup & Usage
+## Quick Start
 
 ### Prerequisites
 
 - Python 3.12+
-- `uv` パッケージマネージャー
+- [uv](https://github.com/astral-sh/uv) パッケージマネージャー
 
-### Environment Setup
-
-1.  依存関係の同期:
-    ```bash
-    uv sync
-    ```
-2.  `egograph/backend/.env` に設定（`.env.example`を参照）:
-    - `R2_*` のクレデンシャルを設定（データアクセス用）。
-    - compacted parquet のローカル mirror は `repo` の兄弟 `data/parquet` を既定で優先利用します。
-    - `LLM_*` のクレデンシャルを設定（チャット機能に必須）。
-    - 本番では `USE_ENV_FILE=false` を指定し、systemd の `EnvironmentFile` からのみ読み込む。
-
-### Running the Server
+### Setup & Run
 
 ```bash
-# 自動リロード付き開発モード
+# 依存関係の同期
+uv sync
+
+# 起動（自動リロード付き開発モード）
 uv run uvicorn egograph.backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-- **API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
+- **API Docs**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
 
-## Key Features & API
+環境変数は `egograph/backend/.env.example` を参照。
 
-### System
+## Development
 
-- `GET /health`: DuckDB と compacted Parquet の読取り可否を確認します。
+| 操作 | コマンド |
+|------|----------|
+| テスト | `uv run pytest egograph/backend/tests` |
+| カバレッジ付きテスト | `uv run pytest egograph/backend/tests --cov=backend` |
+| Lint | `uv run ruff check egograph/backend/` |
+| Format | `uv run ruff format egograph/backend/` |
+| デバッグ用 CLI | `uv run python -m egograph.backend.dev_tools.chat_cli` |
 
-### Data Access
+## Project Structure
 
-- `GET /v1/data/spotify/stats/top-tracks`: 指定された期間のトップトラックを取得します。
-- `GET /v1/data/spotify/stats/listening`: 期間ごとの視聴統計を取得します。
-
-### Chat (Agent)
-
-- `POST /v1/chat`: 会話型インターフェース。
-  - 現在は **Phase 1** (意思決定) を実装: `tool_calls` を返しますが、サーバーサイドでの完全なループ実行はまだ行いません。
-
-## Testing
-
-pytest を使用してテストを実行します:
-
-```bash
-# 全てのバックエンドテストを実行
-uv run pytest backend/tests
-
-# 特定のテストファイルを実行
-uv run pytest backend/tests/test_api.py
-
-# compacted parquet の local mirror を同期
-uv run python -m backend.scripts.sync_compacted_parquet
+```text
+egograph/backend/
+├── api/                # FastAPI ルート定義（chat, data, health, threads）
+│   └── schemas/        # リクエスト/レスポンススキーマ
+├── domain/             # ドメインモデル・ツール定義
+│   ├── models/         # エンティティ・DTO
+│   └── tools/          # LLM ツールインターフェース
+├── usecases/           # ユースケース（アプリケーション層）
+│   ├── chat/           # チャットユースケース
+│   └── tools/          # ツールファクトリ
+├── infrastructure/     # インフラストラクチャ層
+│   ├── database/       # DuckDB 接続・クエリ実行
+│   ├── llm/            # LLM プロバイダー統合
+│   └── repositories/   # Repository 実装
+├── dev_tools/          # 開発用デバッグツール
+├── tests/              # テスト
+└── main.py             # エントリーポイント
 ```
+
+## See Also
+
+> 詳細な設計・仕様は docs/ を参照。
+
+| トピック | ドキュメント |
+|----------|-------------|
+| アーキテクチャ設計 | [docs/20.egograph/backend/architecture.md](../../docs/20.egograph/backend/architecture.md) |
+| Tool System | [docs/20.egograph/backend/tool-system.md](../../docs/20.egograph/backend/tool-system.md) |
+| ストリーミング | [docs/20.egograph/backend/streaming.md](../../docs/20.egograph/backend/streaming.md) |
+| デプロイ手順 | [docs/50.deploy/backend.md](../../docs/50.deploy/backend.md) |
