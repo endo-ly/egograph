@@ -12,6 +12,7 @@ from egograph_paths import PARQUET_DATA_DIR
 
 from pipelines.sources.common.compaction import COMPACTED_ROOT
 from pipelines.sources.common.config import Config, R2Config
+from pipelines.sources.common.settings import PipelinesSettings
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,8 @@ def run_local_mirror_sync(
     failed_keys_sample_limit: int = 20,
 ) -> LocalMirrorSyncResult:
     """compacted parquet を R2 から local mirror へ同期する。"""
-    resolved_r2 = _resolve_r2_config(config, r2_config)
+    resolved_config = config or PipelinesSettings.load()
+    resolved_r2 = _resolve_r2_config(resolved_config, r2_config)
     root = Path(local_root or resolved_r2.local_parquet_root or PARQUET_DATA_DIR)
     root.mkdir(parents=True, exist_ok=True)
 

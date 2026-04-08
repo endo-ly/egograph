@@ -1,8 +1,15 @@
-"""Spotify/GitHub source entrypoint tests."""
+"""Step callable のエントリポイントテスト。"""
 
-from pipelines.sources.common.config import Config, DuckDBConfig, R2Config
+import inspect
+
+from pipelines.domain.workflow import WorkflowRun
+from pipelines.infrastructure.execution.inprocess_executor import (
+    InProcessStepExecutor,
+)
+from pipelines.workflows.registry import get_workflows
 from pipelines.sources.github.pipeline import run_github_compact, run_github_ingest
 from pipelines.sources.spotify.pipeline import run_spotify_compact, run_spotify_ingest
+from pipelines.sources.common.config import Config, DuckDBConfig, R2Config
 from pydantic import SecretStr
 
 
@@ -120,3 +127,35 @@ def test_run_github_compact_raises_after_collecting_failures(monkeypatch):
         assert str(exc) == "GitHub compaction failed for: github/pull_requests:2026-04"
     else:
         raise AssertionError("RuntimeError was not raised")
+
+
+def test_all_inprocess_steps_are_importable():
+    """全 INPROCESS step の callable_ref が import 可能であることを検証する。"""
+    workflows = get_workflows()
+    refs = [
+        step.callable_ref
+        for wf in workflows.values()
+        for step in wf.steps
+        if step.callable_ref
+    ]
+    for ref in refs:
+        InProcessStepExecutor._load_callable(ref)
+
+
+def test_all_inprocess_steps_can_be_invoked_with_no_args():
+    """InProcessStepExecutor._invoke は WorkflowRun 注入以外の step を引数ゼロで呼ぶ。
+    各 callable が引数ゼロで実行可能（自前で config を読み込むなど）であることを検証する。"""
+    workflows = get_workflows()
+    for wf in workflows.values():
+        for step in wf.steps:
+            if not step.callable_ref:
+                continue
+            target = InProcessStepExecutor._load_callable(step.callable_ref)
+            sig = inspect.signature(target)
+            if not sig.parameters:
+                continue
+            first_param = next(iter(sig.parameters.values()))
+            ann = first_param.annotation
+            if ann is WorkflowRun or (isinstance(ann, str) and "WorkflowRun" in ann):
+                continue
+            sig.bind()
