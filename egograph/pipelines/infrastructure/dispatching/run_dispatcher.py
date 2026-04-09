@@ -149,7 +149,7 @@ class RunDispatcher:
         last_summary: dict | None = None
         try:
             for sequence_no, step in enumerate(workflow.steps, start=1):
-                success, last_summary = self._execute_step(
+                success, last_summary, error_message = self._execute_step(
                     workflow=workflow,
                     run=run,
                     step=step,
@@ -164,7 +164,8 @@ class RunDispatcher:
                     self._run_repository.update_run_result(
                         run_id=run.run_id,
                         status=WorkflowRunStatus.FAILED,
-                        error_message=f"step failed: {step.step_id}",
+                        error_message=error_message
+                        or f"step failed: {step.step_id}",
                         result_summary=last_summary,
                     )
                     return
@@ -190,7 +191,8 @@ class RunDispatcher:
         run: WorkflowRun,
         step: StepDefinition,
         sequence_no: int,
-    ) -> tuple[bool, dict | None]:
+    ) -> tuple[bool, dict | None, str | None]:
+        last_error_message: str | None = None
         for attempt_no in range(1, step.max_attempts + 1):
             step_run = self._step_run_repository.insert_step_run(
                 run_id=run.run_id,
@@ -215,6 +217,7 @@ class RunDispatcher:
                     step_run_id=step_run.step_run_id,
                     exc=exc,
                 )
+                last_error_message = f"{type(exc).__name__}: {exc}"
                 if attempt_no < step.max_attempts and step.retry_delay_seconds > 0:
                     time.sleep(step.retry_delay_seconds)
                 continue
@@ -228,10 +231,11 @@ class RunDispatcher:
                 result_summary=result.result_summary,
             )
             if result.status == StepRunStatus.SUCCEEDED:
-                return True, result.result_summary
+                return True, result.result_summary, None
+            last_error_message = result.error_message
             if attempt_no < step.max_attempts and step.retry_delay_seconds > 0:
                 time.sleep(step.retry_delay_seconds)
-        return False, None
+        return False, None, last_error_message
 
     def _execute_definition(
         self,

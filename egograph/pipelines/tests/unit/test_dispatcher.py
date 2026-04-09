@@ -250,7 +250,7 @@ def test_dispatch_once_marks_inprocess_step_failed_on_timeout(tmp_path):
     # Assert
     assert dispatched is True
     assert updated_run.status == WorkflowRunStatus.FAILED
-    assert updated_run.last_error_message == "step failed: sleep"
+    assert updated_run.last_error_message == "step timed out after 1s"
     assert len(steps) == 1
     assert steps[0].status == StepRunStatus.FAILED
     assert steps[0].exit_code is None
@@ -337,7 +337,7 @@ def test_dispatch_once_marks_step_and_run_failed_on_unexpected_executor_error(tm
 
     assert dispatched is True
     assert updated_run.status == WorkflowRunStatus.FAILED
-    assert updated_run.last_error_message == "step failed: explode"
+    assert updated_run.last_error_message == "RuntimeError: boom"
     assert [step.status for step in steps] == [
         StepRunStatus.FAILED,
         StepRunStatus.SKIPPED,
