@@ -44,10 +44,17 @@ registry に静的登録されている tool は次の 8 つ。
 
 MCP が有効な場合、接続済み MCP server が公開する tool が `mcp_{server}_{tool}` 形式で動的追加される。
 
+命名規則:
+
+- 英数字と `_` 以外の文字は `_` に置換される
+- 合計文字数が 64 文字を超える場合は `mcp_{sha256先頭8文字}` に短縮される
+- サニタイズ後の名前が衝突する場合は後続の tool がスキップされる
+
 例:
 
-- `mcp_filesystem_read_file`
-- `mcp_remote_search`
+- `mcp_filesystem_read_file` — 標準的な命名
+- `mcp_db_query_1_` — `query(1)` の `(` `)` が `_` に置換される
+- `mcp_a1b2c3d4` — server/tool 名の合計が 64 文字を超える場合のハッシュ短縮
 
 MCP の詳細は以下を参照。
 
