@@ -2,11 +2,9 @@
 
 `egopulse` がどのように MCP (Model Context Protocol) config を読み込み、server に接続し、tool を動的公開し、turn loop から実行するかをまとめた仕様。
 
-この文書は MCP client 統合だけを対象にする。静的 built-in tool の個別仕様は [built-in-tools.md](./built-in-tools.md) を参照。
+この文書は MCP client 統合だけを対象にする。静的 built-in tool の個別仕様は [tools.md](./tools.md) を参照。
 
 ## 1. スコープ
-
-### 含むもの
 
 - MCP config file の命名と配置
 - global / workspace config source の探索順
@@ -18,14 +16,6 @@
 - tool 実行時の dispatch
 - MCP 固有 error と失敗時の継続方針
 - 現実装の制約
-
-### 含まないもの
-
-- MCP server の実装方法
-- EgoGraph backend を MCP server 化する設計
-- built-in tool の input / output schema 全体
-- Web UI / TUI の画面仕様
-- MicroClaw の memory / subagent / A2A 機能
 
 ## 2. 目的
 
@@ -380,9 +370,3 @@ workspace:
 - `defaultProtocolVersion` / `protocol_version` は parse されるが接続時未使用
 
 つまり現在は「MCP を使うための基盤」は入っているが、MicroClaw の耐障害性まわりまではまだ追従していない。
-
-## 17. 関連ドキュメント
-
-- tool 個別仕様: [built-in-tools.md](./built-in-tools.md)
-- session 管理: [session-lifecycle.md](./session-lifecycle.md)
-- 上流ツール棚卸し: [microclaw-tool-inventory.md](./microclaw-tool-inventory.md)

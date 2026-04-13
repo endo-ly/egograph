@@ -7,21 +7,23 @@
 
 ```
 egopulse.db (SQLite / WAL mode)
-├── chats          — チャットメタデータ・チャンネルアイデンティティ
-├── messages       — メッセージ履歴
-├── sessions       — セッションスナップショット（シリアライズ済み会話）
-└── tool_calls     — ツール呼び出し記録
+├── db_meta             — スキーマバージョン管理（key-value）
+├── schema_migrations   — マイグレーション適用履歴
+├── chats               — チャットメタデータ・チャンネルアイデンティティ
+├── messages            — メッセージ履歴
+├── sessions            — セッションスナップショット（シリアライズ済み会話）
+└── tool_calls          — ツール呼び出し記録
 ```
 
 | 項目 | 値 |
 |------|----|
-| テーブル数 | 4 |
+| テーブル数 | 6（データテーブル 4 + マイグレーション基盤テーブル 2） |
 | インデックス数 | 5 |
 | 外部キー制約 | 1（tool_calls.chat_id → chats.chat_id） |
-| スキーマバージョン管理 | なし（`CREATE TABLE IF NOT EXISTS` のみ） |
+| スキーマバージョン管理 | バージョンベース（`SCHEMA_VERSION` 定数、現行 v1） |
 | DBライブラリ | rusqlite 0.37（bundled） |
 | DBファイル | `{data_dir}/egopulse.db` |
-| 接続ラッパー | `Arc<Mutex<Connection>>` |
+| 接続ラッパー | `Mutex<Connection>` |
 | PRAGMA | `journal_mode=WAL`, `busy_timeout=5s` |
 
 ---
@@ -59,6 +61,14 @@ egopulse.db (SQLite / WAL mode)
                 │ tool_output      │
                 │ timestamp        │
                 └──────────────────┘
+
+┌──────────────────┐       ┌──────────────────┐
+│    db_meta       │       │ schema_migrations│
+│──────────────────│       │──────────────────│
+│ key (PK)         │       │ version (PK)     │
+│ value            │       │ applied_at       │
+└──────────────────┘       │ note             │
+                           └──────────────────┘
 ```
 
 ---
@@ -205,6 +215,52 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_chat_message_id
 
 ---
 
+### db_meta
+
+スキーマバージョンの key-value ストア。現在は `schema_version` のみ格納。
+
+```sql
+CREATE TABLE IF NOT EXISTS db_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+```
+
+| カラム | 型 | 制約 | 説明 |
+|--------|----|------|------|
+| key | TEXT | PK | 設定キー（`schema_version`） |
+| value | TEXT | NOT NULL | 設定値（バージョン番号の文字列表現） |
+
+**操作**:
+- `schema_version(conn)` — `db_meta.schema_version` を読み取り。未設定時は `0` を返す
+- `set_schema_version(conn, version, note)` — Upsert（`ON CONFLICT DO UPDATE`）+ `schema_migrations` への履歴記録
+
+---
+
+### schema_migrations
+
+マイグレーションの適用履歴。各バージョンの適用日時と注記を保持。
+
+```sql
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    applied_at TEXT NOT NULL,
+    note TEXT
+);
+```
+
+| カラム | 型 | 制約 | 説明 |
+|--------|----|------|------|
+| version | INTEGER | PK | スキーマバージョン番号 |
+| applied_at | TEXT | NOT NULL | 適用日時（RFC3339） |
+| note | TEXT | nullable | マイグレーションの説明（例: `"initial schema: chats, messages, sessions, tool_calls"`） |
+
+**設計ポイント**:
+- `set_schema_version` で `db_meta` の更新と同時にレコードが INSERT される
+- `INSERT OR REPLACE` により再適用時は上書き
+
+---
+
 ## Rust 構造体マッピング
 
 | 構造体 | テーブル | フィールド |
@@ -219,9 +275,36 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_chat_message_id
 
 ## 設計上の注意点
 
-### マイグレーション基盤がない
+### マイグレーション機構
 
-スキーマは `Database::new()` 内の `CREATE TABLE IF NOT EXISTS` のみ。ALTER TABLE を必要とするカラム追加には対応できない。新規カラムを追加するには、手動で ALTER するか、基盤を新設する必要がある。
+バージョンベースのインクリメンタルマイグレーションを採用。
+
+**仕組み**:
+1. `Database::new()` → `run_migrations(conn)` を呼び出し
+2. `schema_version(conn)` で `db_meta` テーブルから現在のバージョンを取得（未設定時は `0`）
+3. `if version < N` ブロックで未適用のマイグレーションを逐次実行
+4. 各マイグレーション適用後に `set_schema_version(conn, N, "note")` でバージョンを更新し `schema_migrations` に履歴を記録
+5. `SCHEMA_VERSION` 定数（現行 `1`）に到達したら完了。`debug_assert_eq!` で検証
+
+**新規マイグレーションの追加手順**:
+1. `SCHEMA_VERSION` 定数をインクリメント（例: `1` → `2`）
+2. `run_migrations()` に `if version < 2 { ... }` ブロックを追加
+3. ブロック内で `conn.execute_batch("ALTER TABLE ...")` 等の DDL を実行
+4. `set_schema_version(conn, 2, "description")` を呼び出し
+
+```rust
+// 既存のテンプレート（storage.rs 内）
+// if version < 2 {
+//     conn.execute_batch("...")?;
+//     set_schema_version(conn, 2, "...")?;
+//     version = 2;
+// }
+```
+
+**特徴**:
+- 外部ファイル（SQL マイグレーションファイル）なし。DDL は Rust コードに直接埋め込み
+- 外部クレート（refinery, sqlx 等）への依存なし
+- 再起動時は適用済みバージョンまでスキップされる（冪等）
 
 ### 外部キー制約が最小限
 
@@ -237,8 +320,8 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_chat_message_id
 
 | 観点 | EgoPulse（現状） | Microclaw（v19） |
 |------|------------------|------------------|
-| テーブル数 | 4 | 24 |
-| マイグレーション | なし | バージョンベース（v1→v19） |
+| テーブル数 | 6（データ4 + マイグレーション基盤2） | 24 |
+| マイグレーション | バージョンベース（v1） | バージョンベース（v1→v19） |
 | セッション設定 | messages_json のみ | label, thinking_level, verbose_level, reasoning_level, skill_envs_json, fork |
 | メモリ/知識管理 | なし | memories + reflector/injection/supersede（5テーブル） |
 | タスクスケジューリング | なし | scheduled_tasks + run_logs + dlq（3テーブル） |
