@@ -168,9 +168,7 @@ class TestGitHubRepository:
         assert "repo_full_name" in result[0]
         assert "primary_language" in result[0]
 
-    def test_get_repositories_with_owner_filter(
-        self, github_with_sample_data
-    ):
+    def test_get_repositories_with_owner_filter(self, github_with_sample_data):
         """オーナーフィルタを指定してRepositoryマスターを取得。"""
         # Arrange
         repos_parquet_path = github_with_sample_data.test_repos_parquet_path

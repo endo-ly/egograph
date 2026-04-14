@@ -31,7 +31,9 @@ class GitHubQueryParams:
 GITHUB_PRS_PATH = "s3://{bucket}/{events_path}github/pull_requests/**/*.parquet"
 GITHUB_PRS_PARTITION_PATH = "s3://{bucket}/{events_path}github/pull_requests/year={year}/month={month}/**/*.parquet"
 GITHUB_COMMITS_PATH = "s3://{bucket}/{events_path}github/commits/**/*.parquet"
-GITHUB_COMMITS_PARTITION_PATH = "s3://{bucket}/{events_path}github/commits/year={year}/month={month}/**/*.parquet"
+GITHUB_COMMITS_PARTITION_PATH = (
+    "s3://{bucket}/{events_path}github/commits/year={year}/month={month}/**/*.parquet"
+)
 GITHUB_REPOS_PATH = "s3://{bucket}/{master_path}github/repositories/**/*.parquet"
 
 
@@ -195,8 +197,7 @@ def execute_query(
     records = df.to_dict(orient="records")
     # numpy/pandas型をPython標準型に変換（JSONシリアライズ対応）
     return [
-        {k: _convert_numpy_types(v) for k, v in record.items()}
-        for record in records
+        {k: _convert_numpy_types(v) for k, v in record.items()} for record in records
     ]
 
 

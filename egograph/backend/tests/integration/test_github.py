@@ -244,7 +244,9 @@ class TestRepoSummaryStatsEndpoint:
             }
         ]
 
-        with patch("backend.api.github.get_repo_summary_stats", return_value=mock_result):
+        with patch(
+            "backend.api.github.get_repo_summary_stats", return_value=mock_result
+        ):
             response = test_client.get(
                 "/v1/data/github/repo-summary-stats?start_date=2024-01-01&end_date=2024-01-31",
                 headers={"X-API-Key": "test-backend-key"},

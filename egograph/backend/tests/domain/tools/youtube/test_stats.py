@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from backend.domain.tools.youtube.stats import (
     GetTopChannelsTool,
     GetWatchHistoryTool,

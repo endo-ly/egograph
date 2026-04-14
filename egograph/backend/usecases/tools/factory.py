@@ -5,6 +5,7 @@ from backend.domain.tools.browser_history.page_views import (
     GetPageViewsTool,
     GetTopDomainsTool,
 )
+from backend.domain.tools.data_query import DataQueryTool
 from backend.domain.tools.github.worklog import (
     GetActivityStatsTool,
     GetCommitsTool,
@@ -53,6 +54,9 @@ def build_tool_registry(r2_config: R2Config | None) -> ToolRegistry:
     tool_registry.register(GetRepositoriesTool(github_repository))
     tool_registry.register(GetActivityStatsTool(github_repository))
     tool_registry.register(GetRepoSummaryStatsTool(github_repository))
+
+    # Data Query ツール
+    tool_registry.register(DataQueryTool(r2_config))
 
     # YouTubeツールは一時非推奨 (2025-02-04)
     # youtube_repository = YouTubeRepository(r2_config)

@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 from pydantic import SecretStr
 
-from backend.infrastructure.repositories.youtube_repository import YouTubeRepository
 from backend.config import R2Config
+from backend.infrastructure.repositories.youtube_repository import YouTubeRepository
 
 
 class TestYouTubeRepository:

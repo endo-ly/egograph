@@ -8,8 +8,8 @@ from backend.domain.tools.github.worklog import (
     GetActivityStatsTool,
     GetCommitsTool,
     GetPullRequestsTool,
-    GetRepoSummaryStatsTool,
     GetRepositoriesTool,
+    GetRepoSummaryStatsTool,
 )
 
 
@@ -71,9 +71,7 @@ class TestGetPullRequestsTool:
         tool = GetPullRequestsTool(mock_repository)
 
         # Act: ツールを実行
-        result = tool.execute(
-            start_date="2024-01-01", end_date="2024-01-31", limit=10
-        )
+        result = tool.execute(start_date="2024-01-01", end_date="2024-01-31", limit=10)
 
         # Assert: 実行結果とリポジトリ呼び出しを検証
         assert len(result) == 1
@@ -148,9 +146,7 @@ class TestGetCommitsTool:
         tool = GetCommitsTool(mock_repository)
 
         # Act: ツールを実行
-        result = tool.execute(
-            start_date="2024-01-01", end_date="2024-01-31", limit=10
-        )
+        result = tool.execute(start_date="2024-01-01", end_date="2024-01-31", limit=10)
 
         # Assert: 実行結果とリポジトリ呼び出しを検証
         assert len(result) == 1
@@ -337,9 +333,7 @@ class TestGetRepoSummaryStatsTool:
         tool = GetRepoSummaryStatsTool(mock_repository)
 
         # Act: ツールを実行
-        result = tool.execute(
-            start_date="2024-01-01", end_date="2024-01-31"
-        )
+        result = tool.execute(start_date="2024-01-01", end_date="2024-01-31")
 
         # Assert: 実行結果とリポジトリ呼び出しを検証
         assert len(result) == 1

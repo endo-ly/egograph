@@ -4,7 +4,6 @@ from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
-
 from backend.domain.tools.browser_history.page_views import (
     GetPageViewsTool,
     GetTopDomainsTool,

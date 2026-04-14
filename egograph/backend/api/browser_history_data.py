@@ -14,7 +14,7 @@ from backend.constants import (
     MAX_LIMIT,
     MIN_LIMIT,
 )
-from backend.dependencies import get_config, get_db_connection, verify_api_key
+from backend.dependencies import get_config, get_db_connection, verify_api_key_docs
 from backend.infrastructure.database import (
     BrowserHistoryQueryParams,
     get_page_views,
@@ -66,7 +66,7 @@ def get_page_views_endpoint(
     profile: str | None = Query(None, description="フィルタ対象のプロファイル"),
     db_connection: duckdb.DuckDBPyConnection = Depends(get_db_connection),
     config: BackendConfig = Depends(get_config),
-    _: None = Depends(verify_api_key),
+    _api_key: None = Depends(verify_api_key_docs),
 ):
     """指定期間の page view 一覧を取得する。"""
     params, validated_limit = _build_query_params(
@@ -98,7 +98,7 @@ def get_top_domains_endpoint(
     profile: str | None = Query(None, description="フィルタ対象のプロファイル"),
     db_connection: duckdb.DuckDBPyConnection = Depends(get_db_connection),
     config: BackendConfig = Depends(get_config),
-    _: None = Depends(verify_api_key),
+    _api_key: None = Depends(verify_api_key_docs),
 ):
     """指定期間の domain ランキングを取得する。"""
     params, validated_limit = _build_query_params(

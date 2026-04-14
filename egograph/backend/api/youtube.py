@@ -19,7 +19,7 @@ from backend.constants import (
     MAX_LIMIT,
     MIN_LIMIT,
 )
-from backend.dependencies import get_config, verify_api_key
+from backend.dependencies import get_config
 from backend.infrastructure.repositories.youtube_repository import YouTubeRepository
 from backend.validators import (
     validate_date_range,
@@ -43,7 +43,6 @@ async def get_watch_history_endpoint(
         description="取得する履歴数",
     ),
     config: BackendConfig = Depends(get_config),
-    _: None = Depends(verify_api_key),
 ):
     """指定期間の視聴履歴を取得します。
 
@@ -83,7 +82,6 @@ async def get_watching_stats_endpoint(
         "day", pattern="^(day|week|month)$", description="集計単位"
     ),
     config: BackendConfig = Depends(get_config),
-    _: None = Depends(verify_api_key),
 ):
     """期間別の視聴統計を取得します。
 
@@ -127,7 +125,6 @@ async def get_top_channels_endpoint(
         description="取得するチャンネル数",
     ),
     config: BackendConfig = Depends(get_config),
-    _: None = Depends(verify_api_key),
 ):
     """指定期間で最も視聴されたチャンネルを取得します。
 

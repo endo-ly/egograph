@@ -269,10 +269,17 @@ class GetRepositoriesTool(ToolBase):
         Returns:
             Repositoryリスト
         """
-        logger.info("Executing get_repositories: owner=%s, repo=%s, limit=%s", owner, repo, limit)
+        logger.info(
+            "Executing get_repositories: owner=%s, repo=%s, limit=%s",
+            owner,
+            repo,
+            limit,
+        )
 
         validated_limit = validate_limit(limit, max_value=MAX_LIMIT)
-        result = self.repository.get_repositories(owner=owner, repo=repo, limit=validated_limit)
+        result = self.repository.get_repositories(
+            owner=owner, repo=repo, limit=validated_limit
+        )
         return result
 
 
@@ -435,4 +442,6 @@ class GetRepoSummaryStatsTool(ToolBase):
         )
 
         # データ取得は repository に委譲
-        return self.repository.get_repo_summary_stats(start, end, owner=owner, repo_name=repo)
+        return self.repository.get_repo_summary_stats(
+            start, end, owner=owner, repo_name=repo
+        )
