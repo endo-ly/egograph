@@ -274,6 +274,12 @@ MCP の詳細は以下を参照。
 
 つまり skill 本文は初期ロードされず、最初に入るのは概要一覧だけ。
 
+## セキュリティガード
+
+AI エージェントによるシークレット窃取を防ぐ多層防御。コマンド検閲・パス検閲・出力リダクションの 3 層で構成。
+
+→ 詳細: [security.md](./security.md)
+
 ## Path and Directory Rules
 
 - workspace root:
@@ -283,8 +289,9 @@ MCP の詳細は以下を参照。
   - [egopulse/src/config.rs](../../egopulse/src/config.rs)
   - `~/.egopulse/workspace/skills`
 - path guard:
-  - [egopulse/src/tools.rs](../../egopulse/src/tools.rs)
+  - [egopulse/src/tools/path_guard.rs](../../egopulse/src/tools/path_guard.rs)
   - `..` で workspace 外へ出る path は拒否する
+  - `.ssh`, `.aws`, `.env` 等の機密パスはブロック（詳細: [security.md](./security.md#2-パスガード)）
 
 ## 現在残っている主な非互換
 
