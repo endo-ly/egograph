@@ -31,6 +31,14 @@ from pipelines.infrastructure.execution.subprocess_executor import (
 logger = logging.getLogger(__name__)
 
 
+class _DispatchOutcome:
+    """1回の dispatch 試行結果。"""
+
+    def __init__(self, *, dispatched: bool, blocked_run_id: str | None = None) -> None:
+        self.dispatched = dispatched
+        self.blocked_run_id = blocked_run_id
+
+
 class RunDispatcher:
     """queued run を拾い、workflow step を順序実行する。"""
 
@@ -90,11 +98,19 @@ class RunDispatcher:
 
     def _dispatch_available_runs(self) -> bool:
         dispatched = False
+        blocked_run_ids: set[str] = set()
         while not self._stop_event.is_set():
             available_slots = self._available_slots()
             if available_slots <= 0:
                 return dispatched
-            if not self._dispatch_once_in_background():
+            outcome = self._dispatch_once_in_background(
+                excluded_run_ids=blocked_run_ids
+            )
+            if outcome.blocked_run_id is not None:
+                blocked_run_ids.add(outcome.blocked_run_id)
+                continue
+            blocked_run_ids.clear()
+            if not outcome.dispatched:
                 return dispatched
             dispatched = True
         return dispatched
@@ -140,12 +156,18 @@ class RunDispatcher:
             )
             return True
 
-    def _dispatch_once_in_background(self) -> bool:
+    def _dispatch_once_in_background(
+        self,
+        *,
+        excluded_run_ids: set[str],
+    ) -> _DispatchOutcome:
         run: WorkflowRun | None = None
         try:
-            run = self._run_repository.lease_next_queued_run()
+            run = self._run_repository.lease_next_queued_run(
+                excluded_run_ids=excluded_run_ids
+            )
             if run is None:
-                return False
+                return _DispatchOutcome(dispatched=False)
 
             workflow = self._workflows.get(run.workflow_id)
             if workflow is None:
@@ -162,7 +184,10 @@ class RunDispatcher:
                     run_id=run.run_id,
                     reason=str(exc),
                 )
-                return False
+                return _DispatchOutcome(
+                    dispatched=False,
+                    blocked_run_id=run.run_id,
+                )
 
             worker = threading.Thread(
                 target=self._execute_run_in_worker,
@@ -173,11 +198,11 @@ class RunDispatcher:
             with self._worker_mutex:
                 self._worker_threads[run.run_id] = worker
             worker.start()
-            return True
+            return _DispatchOutcome(dispatched=True)
         except Exception as exc:
             if run is None:
                 logger.exception("dispatch_once failed before leasing a run")
-                return False
+                return _DispatchOutcome(dispatched=False)
             logger.exception(
                 "dispatch_once failed unexpectedly for run_id=%s",
                 run.run_id,
@@ -186,7 +211,7 @@ class RunDispatcher:
                 run_id=run.run_id,
                 exc=exc,
             )
-            return True
+            return _DispatchOutcome(dispatched=True)
 
     def _heartbeat_loop(
         self,

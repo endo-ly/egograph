@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Collection
 from datetime import datetime
 from typing import Any
 
@@ -92,19 +93,30 @@ class RunRepository(SQLiteRepository):
             )
         return self.get_run(run_id)
 
-    def lease_next_queued_run(self) -> WorkflowRun | None:
+    def lease_next_queued_run(
+        self,
+        *,
+        excluded_run_ids: Collection[str] = (),
+    ) -> WorkflowRun | None:
         """queued run を1件 running に遷移させて取得する。"""
         now_text = dt_to_text(utc_now())
+        excluded_clause = ""
+        params: list[str] = [WorkflowRunStatus.QUEUED.value]
+        if excluded_run_ids:
+            placeholders = ", ".join("?" for _ in excluded_run_ids)
+            excluded_clause = f"AND run_id NOT IN ({placeholders})"
+            params.extend(excluded_run_ids)
         with self._mutex, self._conn:
             row = self._conn.execute(
-                """
+                f"""
                 SELECT *
                 FROM workflow_runs
                 WHERE status = ?
+                {excluded_clause}
                 ORDER BY queued_at ASC
                 LIMIT 1
                 """,
-                (WorkflowRunStatus.QUEUED.value,),
+                params,
             ).fetchone()
             if row is None:
                 return None

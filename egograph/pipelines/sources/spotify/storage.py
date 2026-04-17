@@ -22,6 +22,10 @@ from pipelines.sources.common.compaction import (
 logger = logging.getLogger(__name__)
 
 
+class StorageConsistencyError(RuntimeError):
+    """状態ファイルの整合性が保てない場合の例外。"""
+
+
 def _normalize_path(path: str) -> str:
     """パスを正規化して末尾に / を付ける。"""
     return path.rstrip("/") + "/"
@@ -219,11 +223,9 @@ class SpotifyStorage:
             if e.response["Error"]["Code"] == "NoSuchKey":
                 logger.info("No ingest state found.")
                 return None
-            logger.exception("Failed to get ingest state")
-            return None
-        except Exception:
-            logger.exception("Failed to read ingest state")
-            return None
+            raise StorageConsistencyError("Failed to get ingest state") from e
+        except Exception as exc:
+            raise StorageConsistencyError("Failed to read ingest state") from exc
 
     def save_ingest_state(
         self, state: dict[str, Any], key: str = "state/spotify_ingest_state.json"
@@ -242,8 +244,8 @@ class SpotifyStorage:
                 ContentType="application/json",
             )
             logger.info("Saved ingest state to %s", key)
-        except Exception:
-            logger.exception("Failed to save ingest state")
+        except Exception as exc:
+            raise StorageConsistencyError("Failed to save ingest state") from exc
 
     def compact_month(
         self,

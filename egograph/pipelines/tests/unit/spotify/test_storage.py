@@ -2,7 +2,8 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from pipelines.sources.spotify.storage import SpotifyStorage
+from botocore.exceptions import ClientError
+from pipelines.sources.spotify.storage import SpotifyStorage, StorageConsistencyError
 
 
 class TestSpotifyStorage(unittest.TestCase):
@@ -88,6 +89,19 @@ class TestSpotifyStorage(unittest.TestCase):
         call_args = self.mock_s3.put_object.call_args[1]
         self.assertEqual(call_args["Key"], "state/spotify_ingest_state.json")
         self.assertEqual(json.loads(call_args["Body"]), state)
+
+    def test_get_ingest_state_raises_on_unexpected_client_error(self):
+        error_response = {"Error": {"Code": "AccessDenied", "Message": "denied"}}
+        self.mock_s3.get_object.side_effect = ClientError(error_response, "get_object")
+
+        with self.assertRaises(StorageConsistencyError):
+            self.storage.get_ingest_state()
+
+    def test_save_ingest_state_raises_on_write_failure(self):
+        self.mock_s3.put_object.side_effect = RuntimeError("write failed")
+
+        with self.assertRaises(StorageConsistencyError):
+            self.storage.save_ingest_state({"cursor": 456})
 
     def test_save_master_parquet_with_partition(self):
         # Arrange: 保存するデータの準備

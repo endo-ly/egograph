@@ -574,6 +574,71 @@ def test_start_allows_other_workflow_to_progress_while_locked_run_is_requeued(
     assert free_after.status == WorkflowRunStatus.SUCCEEDED
 
 
+def test_dispatch_available_runs_skips_blocked_run_within_same_cycle(tmp_path):
+    """先頭runがlock待ちでも同じdispatch周期で後続runを進める。"""
+    workflows = {
+        "locked_workflow": WorkflowDefinition(
+            workflow_id="locked_workflow",
+            name="Locked workflow",
+            description="Locked workflow",
+            concurrency_key="shared-lock",
+            steps=(
+                StepDefinition(
+                    step_id="sleep",
+                    step_name="Sleep",
+                    executor_type=StepExecutorType.INPROCESS,
+                    callable_ref="pipelines.tests.support.dummy_steps:sleep_briefly",
+                ),
+            ),
+        ),
+        "free_workflow": WorkflowDefinition(
+            workflow_id="free_workflow",
+            name="Free workflow",
+            description="Free workflow",
+            steps=(
+                StepDefinition(
+                    step_id="sleep",
+                    step_name="Sleep",
+                    executor_type=StepExecutorType.INPROCESS,
+                    callable_ref="pipelines.tests.support.dummy_steps:sleep_briefly",
+                ),
+            ),
+        ),
+    }
+    run_repository, _, dispatcher, lock_manager = _build_dispatcher(
+        tmp_path,
+        workflows,
+        max_concurrent_runs=1,
+    )
+    blocked_run = run_repository.enqueue_run(
+        workflow_id="locked_workflow",
+        trigger_type=TriggerType.MANUAL,
+        queued_reason=QueuedReason.MANUAL_REQUEST,
+    )
+    free_run = run_repository.enqueue_run(
+        workflow_id="free_workflow",
+        trigger_type=TriggerType.MANUAL,
+        queued_reason=QueuedReason.MANUAL_REQUEST,
+    )
+    held_lease = lock_manager.acquire(lock_key="shared-lock", run_id="other-run")
+
+    try:
+        dispatched = dispatcher._dispatch_available_runs()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            free_status = run_repository.get_run(free_run.run_id).status
+            if free_status == WorkflowRunStatus.SUCCEEDED:
+                break
+            time.sleep(0.01)
+    finally:
+        dispatcher.stop()
+        lock_manager.release(held_lease)
+
+    assert dispatched is True
+    assert run_repository.get_run(blocked_run.run_id).status == WorkflowRunStatus.QUEUED
+    assert run_repository.get_run(free_run.run_id).status == WorkflowRunStatus.SUCCEEDED
+
+
 def test_heartbeat_loop_logs_warning_and_continues_after_exception(
     tmp_path, caplog
 ):

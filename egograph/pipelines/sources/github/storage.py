@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_STATE_KEY = "state/github_worklog_ingest_state.json"
 
 
+class StorageConsistencyError(RuntimeError):
+    """既存データや状態ファイルの整合性が保てない場合の例外。"""
+
+
 def _normalize_path(path: str) -> str:
     """パスを正規化して末尾に / を付ける。"""
     return path.rstrip("/") + "/"
@@ -133,9 +137,11 @@ class GitHubWorklogStorage:
                         df = pd.read_parquet(BytesIO(obj_response["Body"].read()))
                         if "commit_event_id" in df.columns:
                             existing_ids.update(df["commit_event_id"].tolist())
-                    except Exception:
-                        logger.warning("Failed to read Parquet file: %s", obj["Key"])
-                        continue
+                    except Exception as exc:
+                        raise StorageConsistencyError(
+                            "Failed to read existing commits parquet: "
+                            f"{obj['Key']}"
+                        ) from exc
 
         except ClientError as e:
             if e.response["Error"]["Code"] == "NoSuchKey":
@@ -145,9 +151,15 @@ class GitHubWorklogStorage:
                     month,
                 )
             else:
-                logger.exception("Failed to list existing commits")
-        except Exception:
-            logger.exception("Unexpected error loading existing commit IDs")
+                raise StorageConsistencyError(
+                    "Failed to list existing commits parquet files"
+                ) from e
+        except StorageConsistencyError:
+            raise
+        except Exception as exc:
+            raise StorageConsistencyError(
+                "Unexpected error loading existing commit IDs"
+            ) from exc
 
         return existing_ids
 
@@ -172,9 +184,11 @@ class GitHubWorklogStorage:
                         df = pd.read_parquet(BytesIO(obj_response["Body"].read()))
                         if "pr_event_id" in df.columns:
                             existing_ids.update(df["pr_event_id"].tolist())
-                    except Exception:
-                        logger.warning("Failed to read Parquet file: %s", obj["Key"])
-                        continue
+                    except Exception as exc:
+                        raise StorageConsistencyError(
+                            "Failed to read existing pull request parquet: "
+                            f"{obj['Key']}"
+                        ) from exc
 
         except ClientError as e:
             if e.response["Error"]["Code"] == "NoSuchKey":
@@ -184,9 +198,15 @@ class GitHubWorklogStorage:
                     month,
                 )
             else:
-                logger.exception("Failed to list existing pull request events")
-        except Exception:
-            logger.exception("Unexpected error loading existing pull request event IDs")
+                raise StorageConsistencyError(
+                    "Failed to list existing pull request parquet files"
+                ) from e
+        except StorageConsistencyError:
+            raise
+        except Exception as exc:
+            raise StorageConsistencyError(
+                "Unexpected error loading existing pull request event IDs"
+            ) from exc
 
         return existing_ids
 
@@ -440,11 +460,9 @@ class GitHubWorklogStorage:
             if e.response["Error"]["Code"] == "NoSuchKey":
                 logger.info("No ingest state found.")
                 return None
-            logger.exception("Failed to get ingest state")
-            return None
-        except Exception:
-            logger.exception("Failed to read ingest state")
-            return None
+            raise StorageConsistencyError("Failed to get ingest state") from e
+        except Exception as exc:
+            raise StorageConsistencyError("Failed to read ingest state") from exc
 
     def save_ingest_state(
         self, state: dict[str, Any], key: str = DEFAULT_STATE_KEY
@@ -464,8 +482,8 @@ class GitHubWorklogStorage:
                 ContentType="application/json",
             )
             logger.info("Saved ingest state to %s", key)
-        except Exception:
-            logger.exception("Failed to save ingest state")
+        except Exception as exc:
+            raise StorageConsistencyError("Failed to save ingest state") from exc
 
     def compact_month(
         self,

@@ -7,8 +7,10 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 from botocore.exceptions import ClientError
-
-from pipelines.sources.github.storage import GitHubWorklogStorage
+from pipelines.sources.github.storage import (
+    GitHubWorklogStorage,
+    StorageConsistencyError,
+)
 
 
 class TestGitHubWorklogStorage(unittest.TestCase):
@@ -390,6 +392,21 @@ class TestGitHubWorklogStorage(unittest.TestCase):
         self.assertEqual(json.loads(call_args["Body"]), state)
         self.assertEqual(call_args["ContentType"], "application/json")
 
+    def test_get_ingest_state_raises_on_unexpected_client_error(self):
+        """NoSuchKey以外の状態取得失敗は例外で表面化する。"""
+        error_response = {"Error": {"Code": "AccessDenied", "Message": "denied"}}
+        self.mock_s3.get_object.side_effect = ClientError(error_response, "get_object")
+
+        with self.assertRaises(StorageConsistencyError):
+            self.storage.get_ingest_state()
+
+    def test_save_ingest_state_raises_on_write_failure(self):
+        """状態保存失敗は例外で表面化する。"""
+        self.mock_s3.put_object.side_effect = RuntimeError("write failed")
+
+        with self.assertRaises(StorageConsistencyError):
+            self.storage.save_ingest_state({"cursor": "x"})
+
     def test_save_raw_prs_empty_data(self):
         """空データを渡した場合、保存がスキップされることを検証する。"""
         # Arrange: 空データ
@@ -469,6 +486,24 @@ class TestGitHubWorklogStorage(unittest.TestCase):
 
         # Assert: 空セットが返される
         self.assertEqual(existing_ids, set())
+
+    def test_load_existing_commit_ids_raises_on_corrupt_parquet(self):
+        """既存Parquetが壊れている場合は例外で表面化する。"""
+        mock_page = {
+            "Contents": [
+                {"Key": "events/github/commits/year=2024/month=01/bad.parquet"},
+            ]
+        }
+        mock_paginator = MagicMock()
+        mock_paginator.paginate.return_value = [mock_page]
+        self.mock_s3.get_paginator.return_value = mock_paginator
+
+        mock_body = MagicMock()
+        mock_body.read.return_value = b"not a parquet file"
+        self.mock_s3.get_object.return_value = {"Body": mock_body}
+
+        with self.assertRaises(StorageConsistencyError):
+            self.storage._load_existing_commit_ids(year=2024, month=1)
 
     def test_path_normalization(self):
         """パスが正規化され、末尾に/が付くことを検証する。"""

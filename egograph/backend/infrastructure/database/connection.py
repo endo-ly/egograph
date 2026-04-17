@@ -93,8 +93,16 @@ class DuckDBConnection:
             # secret_nameはハッシュ値なので英数字のみだが、安全のためquoteする
             try:
                 self.conn.execute(f'DROP SECRET IF NOT EXISTS "{secret_name}";')
-            except duckdb.Error:
-                pass
+            except (
+                duckdb.CatalogException,
+                duckdb.IOException,
+                duckdb.ParserException,
+            ):
+                logger.debug(
+                    "DuckDB secret cleanup skipped for endpoint=%s secret_name=%s",
+                    endpoint,
+                    secret_name,
+                )
 
             # CREATE SECRETではSECRET名はidentifierなので直接埋め込み（quote済み）
             # 認証情報はプレースホルダを使用
