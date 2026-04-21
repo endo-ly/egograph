@@ -589,6 +589,43 @@ mod tests {
         assert_eq!(response.usage, None);
     }
 
+    #[test]
+    fn parse_openai_response_handles_partial_usage() {
+        let body: super::OpenAiResponse = serde_json::from_value(serde_json::json!({
+            "choices": [{
+                "message": {
+                    "content": "hello",
+                    "tool_calls": null
+                }
+            }],
+            "usage": {
+                "prompt_tokens": 10
+            }
+        }))
+        .unwrap();
+
+        let response = super::parse_openai_response(body).unwrap();
+        assert_eq!(response.usage, None);
+    }
+
+    #[test]
+    fn parse_responses_api_handles_partial_usage() {
+        let body: super::ResponsesApiResponse = serde_json::from_value(serde_json::json!({
+            "output": [{
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "hi"}]
+            }],
+            "usage": {
+                "input_tokens": 15
+            }
+        }))
+        .unwrap();
+
+        let response = super::parse_responses_response(body).unwrap();
+        assert_eq!(response.usage, None);
+    }
+
     #[tokio::test]
     async fn llm_provider_metadata_returns_config() {
         let server = wiremock::MockServer::start().await;
@@ -599,7 +636,7 @@ mod tests {
         ))
         .expect("provider");
 
-        assert_eq!(provider.provider_name(), "openai");
+        assert_eq!(provider.provider_name(), "test");
         assert_eq!(provider.model_name(), "gpt-4o-mini");
     }
 }

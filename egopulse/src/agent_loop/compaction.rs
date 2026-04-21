@@ -91,19 +91,21 @@ async fn summarize_and_compact(
                 let model = llm.model_name().to_string();
                 let input_tokens = usage.input_tokens;
                 let output_tokens = usage.output_tokens;
-                let _ = crate::storage::call_blocking(db, move |db| {
-                    db.log_llm_usage(&crate::storage::LlmUsageLogEntry {
-                        chat_id,
-                        caller_channel: &channel,
-                        provider: &provider,
-                        model: &model,
-                        input_tokens,
-                        output_tokens,
-                        request_kind: "summarize",
+                tokio::spawn(async move {
+                    let _ = crate::storage::call_blocking(db, move |db| {
+                        db.log_llm_usage(&crate::storage::LlmUsageLogEntry {
+                            chat_id,
+                            caller_channel: &channel,
+                            provider: &provider,
+                            model: &model,
+                            input_tokens,
+                            output_tokens,
+                            request_kind: "summarize",
+                        })
                     })
-                })
-                .await
-                .inspect_err(|e| warn!(error = %e, "llm usage logging failed"));
+                    .await
+                    .inspect_err(|e| warn!(error = %e, "llm usage logging failed"));
+                });
             }
             strip_thinking(&response.content)
         }
@@ -661,18 +663,24 @@ mod tests {
             .expect("process turn");
         assert_eq!(reply, "final answer");
 
-        let summary = call_blocking(Arc::clone(&state.db), move |db| {
-            db.get_llm_usage_summary(Some(chat_id), None)
-        })
-        .await
-        .expect("summary");
-
-        assert_eq!(
-            summary.requests, 1,
-            "compaction LLM call should be logged once"
-        );
-        assert_eq!(summary.input_tokens, 100);
-        assert_eq!(summary.output_tokens, 200);
-        assert_eq!(summary.total_tokens, 300);
+        for _ in 0..20 {
+            let summary = call_blocking(Arc::clone(&state.db), move |db| {
+                db.get_llm_usage_summary(Some(chat_id), None, None)
+            })
+            .await
+            .expect("summary");
+            if summary.requests > 0 {
+                assert_eq!(
+                    summary.requests, 1,
+                    "compaction LLM call should be logged once"
+                );
+                assert_eq!(summary.input_tokens, 100);
+                assert_eq!(summary.output_tokens, 200);
+                assert_eq!(summary.total_tokens, 300);
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        panic!("compaction usage log was not written within the polling timeout");
     }
 }

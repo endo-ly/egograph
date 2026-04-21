@@ -38,9 +38,13 @@ pub(crate) fn parse_openai_response(body: OpenAiResponse) -> Result<MessagesResp
     Ok(MessagesResponse {
         content,
         tool_calls,
-        usage: usage.map(|u| LlmUsage {
-            input_tokens: u.prompt_tokens,
-            output_tokens: u.completion_tokens,
+        usage: usage.and_then(|u| {
+            u.prompt_tokens
+                .zip(u.completion_tokens)
+                .map(|(pt, ct)| LlmUsage {
+                    input_tokens: pt,
+                    output_tokens: ct,
+                })
         }),
     })
 }
@@ -95,9 +99,13 @@ pub(crate) fn parse_responses_response(
     Ok(MessagesResponse {
         content,
         tool_calls,
-        usage: usage.map(|u| LlmUsage {
-            input_tokens: u.input_tokens,
-            output_tokens: u.output_tokens,
+        usage: usage.and_then(|u| {
+            u.input_tokens
+                .zip(u.output_tokens)
+                .map(|(it, ot)| LlmUsage {
+                    input_tokens: it,
+                    output_tokens: ot,
+                })
         }),
     })
 }
@@ -381,8 +389,10 @@ pub(crate) struct OpenAiResponse {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct OpenAiUsage {
-    pub(crate) prompt_tokens: i64,
-    pub(crate) completion_tokens: i64,
+    #[serde(default)]
+    pub(crate) prompt_tokens: Option<i64>,
+    #[serde(default)]
+    pub(crate) completion_tokens: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -394,8 +404,10 @@ pub(crate) struct ResponsesApiResponse {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct ResponsesApiUsage {
-    pub(crate) input_tokens: i64,
-    pub(crate) output_tokens: i64,
+    #[serde(default)]
+    pub(crate) input_tokens: Option<i64>,
+    #[serde(default)]
+    pub(crate) output_tokens: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]

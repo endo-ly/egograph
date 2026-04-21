@@ -765,11 +765,12 @@ impl Database {
 
     /// LLM使用量の集計サマリを取得する。
     ///
-    /// `chat_id` と `since` でフィルタリング可能。
+    /// `chat_id`, `since`, `request_kind` でフィルタリング可能。
     pub fn get_llm_usage_summary(
         &self,
         chat_id: Option<i64>,
         since: Option<&str>,
+        request_kind: Option<&str>,
     ) -> Result<LlmUsageSummary, StorageError> {
         let conn = self.lock_conn()?;
 
@@ -788,8 +789,15 @@ impl Database {
             param_values.push(Box::new(cid));
         }
         if let Some(s) = since {
+            let normalized = chrono::DateTime::parse_from_rfc3339(s)
+                .map(|dt| dt.with_timezone(&chrono::Utc).to_rfc3339())
+                .unwrap_or_else(|_| s.to_string());
             sql.push_str(" AND created_at >= ?");
-            param_values.push(Box::new(s.to_string()));
+            param_values.push(Box::new(normalized));
+        }
+        if let Some(kind) = request_kind {
+            sql.push_str(" AND request_kind = ?");
+            param_values.push(Box::new(kind.to_string()));
         }
 
         let params_refs: Vec<&dyn rusqlite::types::ToSql> =
@@ -820,11 +828,12 @@ impl Database {
 
     /// モデル別のLLM使用量サマリを取得する。
     ///
-    /// `total_tokens` の降順で返す。`chat_id` と `since` でフィルタリング可能。
+    /// `total_tokens` の降順で返す。`chat_id`, `since`, `request_kind` でフィルタリング可能。
     pub fn get_llm_usage_by_model(
         &self,
         chat_id: Option<i64>,
         since: Option<&str>,
+        request_kind: Option<&str>,
     ) -> Result<Vec<LlmModelUsageSummary>, StorageError> {
         let conn = self.lock_conn()?;
 
@@ -843,8 +852,15 @@ impl Database {
             param_values.push(Box::new(cid));
         }
         if let Some(s) = since {
+            let normalized = chrono::DateTime::parse_from_rfc3339(s)
+                .map(|dt| dt.with_timezone(&chrono::Utc).to_rfc3339())
+                .unwrap_or_else(|_| s.to_string());
             sql.push_str(" AND created_at >= ?");
-            param_values.push(Box::new(s.to_string()));
+            param_values.push(Box::new(normalized));
+        }
+        if let Some(kind) = request_kind {
+            sql.push_str(" AND request_kind = ?");
+            param_values.push(Box::new(kind.to_string()));
         }
 
         sql.push_str(" GROUP BY model ORDER BY total_tokens DESC");
@@ -1241,7 +1257,7 @@ mod tests {
     fn get_llm_usage_summary_returns_zeros_when_empty() {
         let (db, _dir) = test_db();
 
-        let summary = db.get_llm_usage_summary(None, None).expect("summary");
+        let summary = db.get_llm_usage_summary(None, None, None).expect("summary");
 
         assert_eq!(summary.requests, 0);
         assert_eq!(summary.input_tokens, 0);
@@ -1285,7 +1301,7 @@ mod tests {
         })
         .expect("log 3");
 
-        let summary = db.get_llm_usage_summary(None, None).expect("summary");
+        let summary = db.get_llm_usage_summary(None, None, None).expect("summary");
 
         assert_eq!(summary.requests, 3);
         assert_eq!(summary.input_tokens, 600);
@@ -1319,7 +1335,9 @@ mod tests {
         })
         .expect("log 2");
 
-        let summary = db.get_llm_usage_summary(Some(100), None).expect("summary");
+        let summary = db
+            .get_llm_usage_summary(Some(100), None, None)
+            .expect("summary");
 
         assert_eq!(summary.requests, 1);
         assert_eq!(summary.input_tokens, 100);
@@ -1355,7 +1373,7 @@ mod tests {
         .expect("log 2");
 
         let summary = db
-            .get_llm_usage_summary(None, Some(&cutoff))
+            .get_llm_usage_summary(None, Some(&cutoff), None)
             .expect("summary");
 
         assert_eq!(summary.requests, 1);
@@ -1401,7 +1419,7 @@ mod tests {
         .expect("log 3");
 
         let summary = db
-            .get_llm_usage_summary(Some(100), Some(&cutoff))
+            .get_llm_usage_summary(Some(100), Some(&cutoff), None)
             .expect("summary");
 
         assert_eq!(summary.requests, 1);
@@ -1443,7 +1461,7 @@ mod tests {
         })
         .expect("log 3");
 
-        let models = db.get_llm_usage_by_model(None, None).expect("models");
+        let models = db.get_llm_usage_by_model(None, None, None).expect("models");
 
         assert_eq!(models.len(), 2);
         let gpt4 = models.iter().find(|m| m.model == "gpt-4").expect("gpt-4");
@@ -1484,7 +1502,7 @@ mod tests {
         })
         .expect("log 2");
 
-        let models = db.get_llm_usage_by_model(None, None).expect("models");
+        let models = db.get_llm_usage_by_model(None, None, None).expect("models");
 
         assert_eq!(models.len(), 2);
         assert!(

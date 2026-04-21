@@ -158,19 +158,21 @@ where
             let model = channel_llm.model_name().to_string();
             let input_tokens = usage.input_tokens;
             let output_tokens = usage.output_tokens;
-            let _ = call_blocking(db, move |db| {
-                db.log_llm_usage(&crate::storage::LlmUsageLogEntry {
-                    chat_id,
-                    caller_channel: &channel,
-                    provider: &provider,
-                    model: &model,
-                    input_tokens,
-                    output_tokens,
-                    request_kind: "agent_loop",
+            tokio::spawn(async move {
+                let _ = call_blocking(db, move |db| {
+                    db.log_llm_usage(&crate::storage::LlmUsageLogEntry {
+                        chat_id,
+                        caller_channel: &channel,
+                        provider: &provider,
+                        model: &model,
+                        input_tokens,
+                        output_tokens,
+                        request_kind: "agent_loop",
+                    })
                 })
-            })
-            .await
-            .inspect_err(|e| warn!(error = %e, "llm usage logging failed"));
+                .await
+                .inspect_err(|e| warn!(error = %e, "llm usage logging failed"));
+            });
         }
 
         if response.tool_calls.is_empty() {
@@ -1423,16 +1425,23 @@ mod tests {
         .await
         .expect("chat id");
 
-        let summary = call_blocking(Arc::clone(&state.db), move |db| {
-            db.get_llm_usage_summary(Some(chat_id), None)
-        })
-        .await
-        .expect("summary");
-
-        assert_eq!(summary.requests, 1);
-        assert_eq!(summary.input_tokens, 10);
-        assert_eq!(summary.output_tokens, 20);
-        assert_eq!(summary.total_tokens, 30);
+        // Wait for the spawned logging task to complete
+        for _ in 0..20 {
+            let summary = call_blocking(Arc::clone(&state.db), move |db| {
+                db.get_llm_usage_summary(Some(chat_id), None, None)
+            })
+            .await
+            .expect("summary");
+            if summary.requests > 0 {
+                assert_eq!(summary.requests, 1);
+                assert_eq!(summary.input_tokens, 10);
+                assert_eq!(summary.output_tokens, 20);
+                assert_eq!(summary.total_tokens, 30);
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        panic!("usage log was not written within the polling timeout");
     }
 
     #[tokio::test]
@@ -1490,19 +1499,25 @@ mod tests {
         .await
         .expect("chat id");
 
-        let summary = call_blocking(Arc::clone(&state.db), move |db| {
-            db.get_llm_usage_summary(Some(chat_id), None)
-        })
-        .await
-        .expect("summary");
-
-        assert_eq!(
-            summary.requests, 2,
-            "should have 2 usage records (one per iteration)"
-        );
-        assert_eq!(summary.input_tokens, 45);
-        assert_eq!(summary.output_tokens, 65);
-        assert_eq!(summary.total_tokens, 110);
+        for _ in 0..20 {
+            let summary = call_blocking(Arc::clone(&state.db), move |db| {
+                db.get_llm_usage_summary(Some(chat_id), None, None)
+            })
+            .await
+            .expect("summary");
+            if summary.requests >= 2 {
+                assert_eq!(
+                    summary.requests, 2,
+                    "should have 2 usage records (one per iteration)"
+                );
+                assert_eq!(summary.input_tokens, 45);
+                assert_eq!(summary.output_tokens, 65);
+                assert_eq!(summary.total_tokens, 110);
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        panic!("usage logs were not written within the polling timeout");
     }
 
     #[tokio::test]
@@ -1527,8 +1542,10 @@ mod tests {
             .expect("process turn");
         assert_eq!(reply, "no usage info");
 
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
         let summary = call_blocking(Arc::clone(&state.db), move |db| {
-            db.get_llm_usage_summary(None, None)
+            db.get_llm_usage_summary(None, None, None)
         })
         .await
         .expect("summary");

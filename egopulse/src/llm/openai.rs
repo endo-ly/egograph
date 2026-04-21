@@ -8,6 +8,7 @@ pub(crate) struct OpenAiProvider {
     api_key: Option<String>,
     model: String,
     base_url: String,
+    provider: String,
 }
 
 impl OpenAiProvider {
@@ -28,6 +29,7 @@ impl OpenAiProvider {
                 .map(|key| key.expose_secret().to_string()),
             model: config.model.clone(),
             base_url: config.base_url.clone(),
+            provider: config.provider.clone(),
         })
     }
 
@@ -103,7 +105,7 @@ impl OpenAiProvider {
 #[async_trait]
 impl LlmProvider for OpenAiProvider {
     fn provider_name(&self) -> &str {
-        "openai"
+        &self.provider
     }
 
     fn model_name(&self) -> &str {

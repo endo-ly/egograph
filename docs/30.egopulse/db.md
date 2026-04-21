@@ -18,7 +18,7 @@ egopulse.db (SQLite / WAL mode)
 | 項目 | 値 |
 |------|----|
 | テーブル数 | 7（データテーブル 5 + マイグレーション基盤テーブル 2） |
-| インデックス数 | 7 |
+| インデックス数 | 6 |
 | 外部キー制約 | 1（tool_calls.chat_id → chats.chat_id） |
 | スキーマバージョン管理 | バージョンベース（`SCHEMA_VERSION` 定数、現行 v2） |
 | DBライブラリ | rusqlite 0.37（bundled） |
