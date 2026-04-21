@@ -56,7 +56,7 @@ async def get_watch_events_endpoint(
         視聴イベントのリスト（視聴日時降順）
 
     Example:
-        GET /v1/data/youtube/watch-events?start_date=2024-01-01&end_date=2024-01-31&limit=50
+        GET /v1/data/youtube/watch-events?start_date=2024-01-01&end_date=2024-01-31
     """
     try:
         start, end = validate_date_range(start_date, end_date)

@@ -20,7 +20,8 @@ def _page_view_row(
     """テスト用の page_view_row を生成する。"""
     return {
         "page_view_id": "browser_history_page_view_abc123",
-        "started_at_utc": started_at or datetime(2026, 4, 21, 12, 0, tzinfo=timezone.utc),
+        "started_at_utc": started_at
+        or datetime(2026, 4, 21, 12, 0, tzinfo=timezone.utc),
         "ended_at_utc": datetime(2026, 4, 21, 12, 5, tzinfo=timezone.utc),
         "url": url,
         "title": title,
@@ -162,7 +163,9 @@ def test_group_events_by_month_for_youtube_storage():
     rows = [
         _page_view_row("https://www.youtube.com/watch?v=jan_video", started_at=jan),
         _page_view_row("https://www.youtube.com/watch?v=feb_video1", started_at=feb),
-        _page_view_row("https://www.youtube.com/watch?v=feb_video2", started_at=feb_late),
+        _page_view_row(
+            "https://www.youtube.com/watch?v=feb_video2", started_at=feb_late
+        ),
     ]
     events = extract_youtube_watch_events(rows)
 

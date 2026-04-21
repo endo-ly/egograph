@@ -1,5 +1,6 @@
 """YouTube API統合テスト。"""
 
+import asyncio
 import json
 from unittest.mock import MagicMock, patch
 
@@ -13,7 +14,6 @@ from backend.domain.tools.youtube.stats import (
 )
 from backend.infrastructure.repositories import YouTubeRepository
 from backend.mcp_server import create_mcp_server
-from backend.usecases.tools.factory import build_tool_registry
 
 # ========================================
 # テスト1: watch-events API
@@ -222,7 +222,6 @@ class TestMCPRegistryYouTubeTools:
         """MCP list_toolsに4つのYouTubeツールが含まれる。"""
         # Arrange: 実際のbuild_tool_registryを使ってMCPサーバーを構築
         # mock_backend_configはr2_configを持つため、YouTubeツールも登録される
-        import asyncio
 
         server = create_mcp_server(mock_backend_config)
         handler = server._mcp_server.request_handlers[ListToolsRequest]
@@ -249,7 +248,6 @@ class TestMCPCallYouTubeTool:
     def test_mcp_call_youtube_tool_returns_json_payload(self, mock_backend_config):
         """MCP call_toolでYouTubeツールがJSONテキストを返す。"""
         # Arrange
-        import asyncio
 
         mock_result = [
             {
@@ -261,7 +259,9 @@ class TestMCPCallYouTubeTool:
             }
         ]
 
-        with patch.object(YouTubeRepository, "get_watch_events", return_value=mock_result):
+        with patch.object(
+            YouTubeRepository, "get_watch_events", return_value=mock_result
+        ):
             server = create_mcp_server(mock_backend_config)
             handler = server._mcp_server.request_handlers[CallToolRequest]
             request = CallToolRequest(
@@ -298,7 +298,6 @@ class TestToolInputSchemaContract:
     def test_tool_input_schema_matches_documented_contract(self):
         """各YouTubeツールのinput_schemaが仕様通りの必須フィールドを持つ。"""
         # Arrange: ツールインスタンスを生成
-        from unittest.mock import MagicMock
 
         mock_repo = MagicMock()
 

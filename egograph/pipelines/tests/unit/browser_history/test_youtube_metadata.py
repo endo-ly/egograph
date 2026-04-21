@@ -1,7 +1,7 @@
 """YouTube メタデータ解決・マスター保存の単体テスト。"""
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from pipelines.sources.browser_history.youtube_metadata import (
     build_channel_master_rows,
@@ -44,7 +44,9 @@ def _api_channel_response(
         "snippet": {
             "title": title,
             "publishedAt": "2006-01-01T00:00:00Z",
-            "thumbnails": {"high": {"url": f"https://img.youtube.com/ch/{channel_id}.jpg"}},
+            "thumbnails": {
+                "high": {"url": f"https://img.youtube.com/ch/{channel_id}.jpg"}
+            },
             "description": "Official channel.",
             "country": "GB",
         },

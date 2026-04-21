@@ -145,9 +145,7 @@ def resolve_youtube_metadata(
     video_master = build_video_master_rows(api_videos, content_type_map)
 
     # unique channel_ids from API response
-    channel_ids = list(
-        {v["channel_id"] for v in video_master if v["channel_id"]}
-    )
+    channel_ids = list({v["channel_id"] for v in video_master if v["channel_id"]})
 
     try:
         api_channels = api_client.get_channels(channel_ids)

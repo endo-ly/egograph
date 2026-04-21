@@ -25,10 +25,10 @@ class YouTubeQueryParams:
 
 
 # Parquetパスパターン
-YOUTUBE_WATCH_EVENTS_PATH = "s3://{bucket}/{events_path}youtube/watch_events/**/*.parquet"
-YOUTUBE_WATCH_EVENTS_PARTITION_PATH = (
-    "s3://{bucket}/{events_path}youtube/watch_events/year={year}/month={month}/**/*.parquet"
+YOUTUBE_WATCH_EVENTS_PATH = (
+    "s3://{bucket}/{events_path}youtube/watch_events/**/*.parquet"
 )
+YOUTUBE_WATCH_EVENTS_PARTITION_PATH = "s3://{bucket}/{events_path}youtube/watch_events/year={year}/month={month}/**/*.parquet"
 YOUTUBE_VIDEOS_PATH = "s3://{bucket}/{master_path}youtube/videos/**/*.parquet"
 YOUTUBE_CHANNELS_PATH = "s3://{bucket}/{master_path}youtube/channels/**/*.parquet"
 
