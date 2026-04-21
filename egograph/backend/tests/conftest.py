@@ -142,10 +142,15 @@ def duckdb_with_sample_data(duckdb_conn, tmp_path):
 class YouTubeConnectionWrapper:
     """YouTube用DuckDB接続のラッパー（テスト用の属性を保持）。"""
 
-    def __init__(self, conn, watches_parquet_path, videos_parquet_path):
+    def __init__(self, conn, watch_events_parquet_path, videos_parquet_path):
         self._conn = conn
-        self.test_watches_parquet_path = watches_parquet_path
+        self.test_watch_events_parquet_path = watch_events_parquet_path
         self.test_videos_parquet_path = videos_parquet_path
+
+    @property
+    def test_watches_parquet_path(self) -> str:
+        """後方互換プロパティ（test_watch_events_parquet_path へのエイリアス）。"""
+        return self.test_watch_events_parquet_path
 
     def __getattr__(self, name):
         """属性アクセスを内部の接続オブジェクトに委譲。"""
@@ -154,11 +159,17 @@ class YouTubeConnectionWrapper:
 
 @pytest.fixture
 def youtube_with_sample_data(duckdb_conn, tmp_path):
-    """サンプルYouTube Parquetデータを持つDuckDB。"""
-    # 視聴履歴データ作成
+    """サンプルYouTube watch_events Parquetデータを持つDuckDB。"""
+    # 視聴イベントデータ作成
     watches_data = pd.DataFrame(
         {
-            "watch_id": ["watch_1", "watch_2", "watch_3", "watch_4", "watch_5"],
+            "watch_event_id": [
+                "we_1",
+                "we_2",
+                "we_3",
+                "we_4",
+                "we_5",
+            ],
             "account_id": ["account_1"] * 5,
             "watched_at_utc": pd.to_datetime(
                 [
@@ -170,6 +181,13 @@ def youtube_with_sample_data(duckdb_conn, tmp_path):
                 ]
             ),
             "video_id": ["video_1", "video_2", "video_1", "video_3", "video_1"],
+            "video_url": [
+                "https://youtube.com/watch?v=video_1",
+                "https://youtube.com/watch?v=video_2",
+                "https://youtube.com/watch?v=video_1",
+                "https://youtube.com/watch?v=video_3",
+                "https://youtube.com/watch?v=video_1",
+            ],
             "video_title": [
                 "Video A",
                 "Video B",
@@ -191,14 +209,17 @@ def youtube_with_sample_data(duckdb_conn, tmp_path):
                 "Channel Z",
                 "Channel X",
             ],
-            "video_url": [
-                "https://youtube.com/watch?v=video_1",
-                "https://youtube.com/watch?v=video_2",
-                "https://youtube.com/watch?v=video_1",
-                "https://youtube.com/watch?v=video_3",
-                "https://youtube.com/watch?v=video_1",
+            "content_type": ["video", "video", "video", "short", "video"],
+            "source": ["browser_history"] * 5,
+            "source_event_id": [
+                "se_1",
+                "se_2",
+                "se_3",
+                "se_4",
+                "se_5",
             ],
-            "context": ["{}"] * 5,
+            "source_device": ["home-pc"] * 5,
+            "ingested_at_utc": pd.to_datetime(["2024-01-01 12:00:00"] * 5),
         }
     )
 
@@ -223,9 +244,9 @@ def youtube_with_sample_data(duckdb_conn, tmp_path):
     )
 
     # Parquetファイルとして保存
-    watches_parquet_path = tmp_path / "youtube_watches.parquet"
+    watch_events_parquet_path = tmp_path / "youtube_watch_events.parquet"
     videos_parquet_path = tmp_path / "youtube_videos.parquet"
-    watches_data.to_parquet(watches_parquet_path)
+    watches_data.to_parquet(watch_events_parquet_path)
     videos_data.to_parquet(videos_parquet_path)
 
     # DuckDBにDataFrameを直接登録
@@ -243,7 +264,7 @@ def youtube_with_sample_data(duckdb_conn, tmp_path):
 
     # ラッパーオブジェクトを作成
     wrapper = YouTubeConnectionWrapper(
-        duckdb_conn, str(watches_parquet_path), str(videos_parquet_path)
+        duckdb_conn, str(watch_events_parquet_path), str(videos_parquet_path)
     )
 
     yield wrapper

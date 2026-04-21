@@ -25,23 +25,29 @@ class YouTubeQueryParams:
 
 
 # Parquetパスパターン
-YOUTUBE_WATCHES_PATH = "s3://{bucket}/{events_path}youtube/watch_history/**/*.parquet"
-YOUTUBE_WATCHES_PARTITION_PATH = "s3://{bucket}/{events_path}youtube/watch_history/year={year}/month={month}/**/*.parquet"
+YOUTUBE_WATCH_EVENTS_PATH = "s3://{bucket}/{events_path}youtube/watch_events/**/*.parquet"
+YOUTUBE_WATCH_EVENTS_PARTITION_PATH = (
+    "s3://{bucket}/{events_path}youtube/watch_events/year={year}/month={month}/**/*.parquet"
+)
 YOUTUBE_VIDEOS_PATH = "s3://{bucket}/{master_path}youtube/videos/**/*.parquet"
 YOUTUBE_CHANNELS_PATH = "s3://{bucket}/{master_path}youtube/channels/**/*.parquet"
 
 
-def get_watches_parquet_path(bucket: str, events_path: str) -> str:
-    """YouTube視聴履歴のS3パスパターンを生成します。
+def get_watch_events_parquet_path(bucket: str, events_path: str) -> str:
+    """YouTube視聴イベントのS3パスパターンを生成します。
 
     Args:
         bucket: R2バケット名
         events_path: イベントデータのパスプレフィックス
 
     Returns:
-        S3パスパターン（例: s3://egograph/events/youtube/watch_history/**/*.parquet）
+        S3パスパターン（例: s3://egograph/events/youtube/watch_events/**/*.parquet）
     """
-    return YOUTUBE_WATCHES_PATH.format(bucket=bucket, events_path=events_path)
+    return YOUTUBE_WATCH_EVENTS_PATH.format(bucket=bucket, events_path=events_path)
+
+
+# 後方互換エイリアス（Step 4 で削除）
+get_watches_parquet_path = get_watch_events_parquet_path
 
 
 def get_videos_parquet_path(bucket: str, master_path: str) -> str:
@@ -89,7 +95,7 @@ def _generate_partition_paths(
     end_month = end_date.replace(day=1)
 
     while current <= end_month:
-        path = YOUTUBE_WATCHES_PARTITION_PATH.format(
+        path = YOUTUBE_WATCH_EVENTS_PARTITION_PATH.format(
             bucket=bucket,
             events_path=events_path,
             year=current.year,
@@ -133,26 +139,27 @@ def execute_query(
     return df.to_dict(orient="records")
 
 
-def get_watch_history(
+def get_watch_events(
     params: YouTubeQueryParams, limit: int | None = None
 ) -> list[dict[str, Any]]:
-    """指定期間の視聴履歴を取得します。
+    """指定期間の視聴イベントを取得します。
 
     Args:
         params: クエリパラメータ（コネクション、バケット、パス、日付範囲）
-        limit: 取得する履歴数（デフォルト: None = 全件）
+        limit: 取得するイベント数（デフォルト: None = 全件）
 
     Returns:
-        視聴履歴のリスト（watched_at_utc DESC）
+        視聴イベントのリスト（watched_at_utc DESC）
         [
             {
-                "watch_id": str,
+                "watch_event_id": str,
                 "watched_at_utc": str,
                 "video_id": str,
+                "video_url": str,
                 "video_title": str,
                 "channel_id": str,
                 "channel_name": str,
-        "video_url": str
+                "content_type": str
             },
             ...
         ]
@@ -163,13 +170,14 @@ def get_watch_history(
 
     query = """
         SELECT
-            w.watch_id,
+            w.watch_event_id,
             w.watched_at_utc,
             w.video_id,
+            w.video_url,
             w.video_title,
             w.channel_id,
             w.channel_name,
-            w.video_url
+            w.content_type
         FROM read_parquet(?) w
         WHERE w.watched_at_utc::DATE BETWEEN ? AND ?
         ORDER BY w.watched_at_utc DESC
@@ -178,7 +186,7 @@ def get_watch_history(
         query += f"\n        LIMIT {limit}"
 
     logger.debug(
-        "Executing get_watch_history: %s to %s, limit=%s",
+        "Executing get_watch_events: %s to %s, limit=%s",
         params.start_date,
         params.end_date,
         limit,
@@ -189,6 +197,10 @@ def get_watch_history(
         query,
         [partition_paths, params.start_date, params.end_date],
     )
+
+
+# 後方互換エイリアス（Step 4 で削除）
+get_watch_history = get_watch_events
 
 
 def get_watching_stats(
@@ -205,9 +217,9 @@ def get_watching_stats(
         [
             {
                 "period": str,
-                "total_seconds": int,
-                "video_count": int,
-                "unique_videos": int
+                "watch_event_count": int,
+                "unique_video_count": int,
+                "unique_channel_count": int
             },
             ...
         ]
@@ -239,11 +251,10 @@ def get_watching_stats(
     query = f"""
         SELECT
             strftime(w.watched_at_utc::DATE, '{date_format}') as period,
-            SUM(COALESCE(v.duration_seconds, 0)) as total_seconds,
-            COUNT(*) as video_count,
-            COUNT(DISTINCT w.video_id) as unique_videos
+            COUNT(*) as watch_event_count,
+            COUNT(DISTINCT w.video_id) as unique_video_count,
+            COUNT(DISTINCT w.channel_id) as unique_channel_count
         FROM read_parquet(?) w
-        LEFT JOIN read_parquet(?) v ON w.video_id = v.video_id
         WHERE w.watched_at_utc::DATE BETWEEN ? AND ?
         GROUP BY period
         ORDER BY period ASC
@@ -256,11 +267,64 @@ def get_watching_stats(
         granularity,
     )
 
-    videos_path = get_videos_parquet_path(params.bucket, params.master_path)
     return execute_query(
         params.conn,
         query,
-        [partition_paths, videos_path, params.start_date, params.end_date],
+        [partition_paths, params.start_date, params.end_date],
+    )
+
+
+def get_top_videos(
+    params: YouTubeQueryParams, limit: int = DEFAULT_TOP_TRACKS_LIMIT
+) -> list[dict[str, Any]]:
+    """指定期間で最も視聴された動画を取得します。
+
+    Args:
+        params: クエリパラメータ（コネクション、バケット、パス、日付範囲）
+        limit: 取得する動画数（デフォルト: 10）
+
+    Returns:
+        トップ動画のリスト（視聴イベント数降順）
+        [
+            {
+                "video_id": str,
+                "video_title": str,
+                "channel_id": str,
+                "channel_name": str,
+                "watch_event_count": int
+            },
+            ...
+        ]
+    """
+    partition_paths = _generate_partition_paths(
+        params.bucket, params.events_path, params.start_date, params.end_date
+    )
+
+    query = """
+        SELECT
+            w.video_id,
+            w.video_title,
+            w.channel_id,
+            w.channel_name,
+            COUNT(*) as watch_event_count
+        FROM read_parquet(?) w
+        WHERE w.watched_at_utc::DATE BETWEEN ? AND ?
+        GROUP BY w.video_id, w.video_title, w.channel_id, w.channel_name
+        ORDER BY watch_event_count DESC
+        LIMIT ?
+    """
+
+    logger.debug(
+        "Executing get_top_videos: %s to %s, limit=%s",
+        params.start_date,
+        params.end_date,
+        limit,
+    )
+
+    return execute_query(
+        params.conn,
+        query,
+        [partition_paths, params.start_date, params.end_date, limit],
     )
 
 
@@ -274,13 +338,13 @@ def get_top_channels(
         limit: 取得するチャンネル数（デフォルト: 10）
 
     Returns:
-        トップチャンネルのリスト（視聴時間降順）
+        トップチャンネルのリスト（視聴イベント数降順）
         [
             {
                 "channel_id": str,
                 "channel_name": str,
-                "video_count": int,
-                "total_seconds": int
+                "watch_event_count": int,
+                "unique_video_count": int
             },
             ...
         ]
@@ -293,13 +357,12 @@ def get_top_channels(
         SELECT
             w.channel_id,
             w.channel_name,
-            COUNT(*) as video_count,
-            SUM(COALESCE(v.duration_seconds, 0)) as total_seconds
+            COUNT(*) as watch_event_count,
+            COUNT(DISTINCT w.video_id) as unique_video_count
         FROM read_parquet(?) w
-        LEFT JOIN read_parquet(?) v ON w.video_id = v.video_id
         WHERE w.watched_at_utc::DATE BETWEEN ? AND ?
         GROUP BY w.channel_id, w.channel_name
-        ORDER BY total_seconds DESC
+        ORDER BY watch_event_count DESC
         LIMIT ?
     """
 
@@ -310,9 +373,8 @@ def get_top_channels(
         limit,
     )
 
-    videos_path = get_videos_parquet_path(params.bucket, params.master_path)
     return execute_query(
         params.conn,
         query,
-        [partition_paths, videos_path, params.start_date, params.end_date, limit],
+        [partition_paths, params.start_date, params.end_date, limit],
     )

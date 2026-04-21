@@ -1,4 +1,4 @@
-"""YouTube Repository層のテスト（REDフェーズ）。"""
+"""YouTube クエリ層のテスト。"""
 
 from datetime import date
 from unittest.mock import patch
@@ -11,9 +11,10 @@ from backend.infrastructure.database.youtube_queries import (
     execute_query,
     get_channels_parquet_path,
     get_top_channels,
+    get_top_videos,
     get_videos_parquet_path,
-    get_watch_history,
-    get_watches_parquet_path,
+    get_watch_events,
+    get_watch_events_parquet_path,
     get_watching_stats,
 )
 
@@ -43,13 +44,13 @@ class TestYouTubeQueryParams:
 class TestGetParquetPaths:
     """Parquetパス生成関数のテスト。"""
 
-    def test_get_watches_parquet_path(self):
-        """視聴履歴のS3パスパターンを生成。"""
+    def test_get_watch_events_parquet_path(self):
+        """視聴イベントのS3パスパターンを生成。"""
         # Arrange & Act
-        path = get_watches_parquet_path("my-bucket", "events/")
+        path = get_watch_events_parquet_path("my-bucket", "events/")
 
         # Assert
-        assert path == "s3://my-bucket/events/youtube/watch_history/**/*.parquet"
+        assert path == "s3://my-bucket/events/youtube/watch_events/**/*.parquet"
 
     def test_get_videos_parquet_path(self):
         """動画マスターのS3パスパターンを生成。"""
@@ -86,7 +87,7 @@ class TestGeneratePartitionPaths:
         assert len(paths) == 1
         assert (
             paths[0]
-            == "s3://my-bucket/events/youtube/watch_history/year=2024/month=01/**/*.parquet"
+            == "s3://my-bucket/events/youtube/watch_events/year=2024/month=01/**/*.parquet"
         )
 
     def test_generates_multiple_month_paths(self):
@@ -104,15 +105,15 @@ class TestGeneratePartitionPaths:
         assert len(paths) == 3
         assert (
             paths[0]
-            == "s3://test-bucket/data/youtube/watch_history/year=2024/month=11/**/*.parquet"
+            == "s3://test-bucket/data/youtube/watch_events/year=2024/month=11/**/*.parquet"
         )
         assert (
             paths[1]
-            == "s3://test-bucket/data/youtube/watch_history/year=2024/month=12/**/*.parquet"
+            == "s3://test-bucket/data/youtube/watch_events/year=2024/month=12/**/*.parquet"
         )
         assert (
             paths[2]
-            == "s3://test-bucket/data/youtube/watch_history/year=2025/month=01/**/*.parquet"
+            == "s3://test-bucket/data/youtube/watch_events/year=2025/month=01/**/*.parquet"
         )
 
     def test_handles_year_boundary(self):
@@ -178,39 +179,34 @@ class TestExecuteQuery:
         assert result[1] == {"id": 2, "name": "Bob"}
 
 
-class TestGetWatchHistory:
-    """get_watch_history のテスト。"""
+class TestGetWatchEvents:
+    """get_watch_events のテスト。"""
 
-    def test_returns_watch_history(self, youtube_with_sample_data):
-        """視聴履歴を取得。"""
+    def test_returns_watch_events(self, youtube_with_sample_data):
+        """視聴イベントを取得。"""
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        watches_parquet_path = youtube_with_sample_data.test_watches_parquet_path
-        videos_parquet_path = youtube_with_sample_data.test_videos_parquet_path
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
 
         with patch(
             "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[watches_parquet_path],
+            return_value=[watch_events_path],
         ):
-            with patch(
-                "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                return_value=videos_parquet_path,
-            ):
-                # Act
-                params = YouTubeQueryParams(
-                    conn=youtube_with_sample_data,
-                    bucket=bucket,
-                    events_path=events_path,
-                    master_path="master/",
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 1, 3),
-                )
-                result = get_watch_history(params)
+            # Act
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_watch_events(params)
 
         # Assert
         assert len(result) > 0
-        assert "watch_id" in result[0]
+        assert "watch_event_id" in result[0]
         assert "watched_at_utc" in result[0]
         assert "video_title" in result[0]
 
@@ -219,27 +215,22 @@ class TestGetWatchHistory:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        watches_parquet_path = youtube_with_sample_data.test_watches_parquet_path
-        videos_parquet_path = youtube_with_sample_data.test_videos_parquet_path
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
 
         with patch(
             "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[watches_parquet_path],
+            return_value=[watch_events_path],
         ):
-            with patch(
-                "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                return_value=videos_parquet_path,
-            ):
-                # Act: 2024-01-01のデータのみ取得
-                params = YouTubeQueryParams(
-                    conn=youtube_with_sample_data,
-                    bucket=bucket,
-                    events_path=events_path,
-                    master_path="master/",
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 1, 1),
-                )
-                result = get_watch_history(params)
+            # Act: 2024-01-01のデータのみ取得
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 1),
+            )
+            result = get_watch_events(params)
 
         # Assert: 2024-01-01には2件のレコードがある
         assert len(result) == 2
@@ -249,27 +240,22 @@ class TestGetWatchHistory:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        watches_parquet_path = youtube_with_sample_data.test_watches_parquet_path
-        videos_parquet_path = youtube_with_sample_data.test_videos_parquet_path
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
 
         with patch(
             "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[watches_parquet_path],
+            return_value=[watch_events_path],
         ):
-            with patch(
-                "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                return_value=videos_parquet_path,
-            ):
-                # Act: limit=2で取得
-                params = YouTubeQueryParams(
-                    conn=youtube_with_sample_data,
-                    bucket=bucket,
-                    events_path=events_path,
-                    master_path="master/",
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 1, 3),
-                )
-                result = get_watch_history(params, limit=2)
+            # Act: limit=2で取得
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_watch_events(params, limit=2)
 
         # Assert
         assert len(result) <= 2
@@ -283,94 +269,162 @@ class TestGetWatchingStats:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        watches_parquet_path = youtube_with_sample_data.test_watches_parquet_path
-        videos_parquet_path = youtube_with_sample_data.test_videos_parquet_path
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
 
         with patch(
             "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[watches_parquet_path],
+            return_value=[watch_events_path],
         ):
-            with patch(
-                "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                return_value=videos_parquet_path,
-            ):
-                # Act
-                params = YouTubeQueryParams(
-                    conn=youtube_with_sample_data,
-                    bucket=bucket,
-                    events_path=events_path,
-                    master_path="master/",
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 1, 3),
-                )
-                result = get_watching_stats(params, granularity="day")
+            # Act
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_watching_stats(params, granularity="day")
 
         # Assert: 3日分のデータが正しく集計される
         assert len(result) == 3
         assert result[0]["period"] == "2024-01-01"
-        assert result[0]["video_count"] == 2
-        assert "total_seconds" in result[0]
-        assert "unique_videos" in result[0]
+        assert result[0]["watch_event_count"] == 2
+        assert "unique_video_count" in result[0]
+        assert "unique_channel_count" in result[0]
 
     def test_aggregates_by_month(self, youtube_with_sample_data):
         """月単位で集計。"""
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        watches_parquet_path = youtube_with_sample_data.test_watches_parquet_path
-        videos_parquet_path = youtube_with_sample_data.test_videos_parquet_path
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
 
         with patch(
             "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[watches_parquet_path],
+            return_value=[watch_events_path],
         ):
-            with patch(
-                "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                return_value=videos_parquet_path,
-            ):
-                # Act
-                params = YouTubeQueryParams(
-                    conn=youtube_with_sample_data,
-                    bucket=bucket,
-                    events_path=events_path,
-                    master_path="master/",
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 1, 3),
-                )
-                result = get_watching_stats(params, granularity="month")
+            # Act
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_watching_stats(params, granularity="month")
 
         # Assert: 1ヶ月分のデータが正しく集計される
         assert len(result) == 1
         assert result[0]["period"] == "2024-01"
-        assert result[0]["video_count"] == 5
+        assert result[0]["watch_event_count"] == 5
 
     def test_invalid_granularity_raises_error(self, youtube_with_sample_data):
         """無効な粒度でエラー発生。"""
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        watches_parquet_path = youtube_with_sample_data.test_watches_parquet_path
-        videos_parquet_path = youtube_with_sample_data.test_videos_parquet_path
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
 
         with patch(
             "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[watches_parquet_path],
+            return_value=[watch_events_path],
         ):
-            with patch(
-                "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                return_value=videos_parquet_path,
-            ):
-                params = YouTubeQueryParams(
-                    conn=youtube_with_sample_data,
-                    bucket=bucket,
-                    events_path=events_path,
-                    master_path="master/",
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 1, 3),
-                )
-                # Act & Assert
-                with pytest.raises(ValueError, match="Invalid granularity"):
-                    get_watching_stats(params, granularity="invalid")
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            # Act & Assert
+            with pytest.raises(ValueError, match="Invalid granularity"):
+                get_watching_stats(params, granularity="invalid")
+
+
+class TestGetTopVideos:
+    """get_top_videos のテスト。"""
+
+    def test_returns_top_videos(self, youtube_with_sample_data):
+        """トップ動画を取得。"""
+        # Arrange
+        bucket = "test-bucket"
+        events_path = "events/"
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
+
+        with patch(
+            "backend.infrastructure.database.youtube_queries._generate_partition_paths",
+            return_value=[watch_events_path],
+        ):
+            # Act
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_top_videos(params)
+
+        # Assert
+        assert len(result) > 0
+        assert "video_id" in result[0]
+        assert "video_title" in result[0]
+        assert "watch_event_count" in result[0]
+
+    def test_respects_limit_parameter(self, youtube_with_sample_data):
+        """limitパラメータを尊重。"""
+        # Arrange
+        bucket = "test-bucket"
+        events_path = "events/"
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
+
+        with patch(
+            "backend.infrastructure.database.youtube_queries._generate_partition_paths",
+            return_value=[watch_events_path],
+        ):
+            # Act: limit=2で取得
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_top_videos(params, limit=2)
+
+        # Assert
+        assert len(result) <= 2
+
+    def test_orders_by_watch_event_count(self, youtube_with_sample_data):
+        """視聴イベント数降順でソート。"""
+        # Arrange
+        bucket = "test-bucket"
+        events_path = "events/"
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
+
+        with patch(
+            "backend.infrastructure.database.youtube_queries._generate_partition_paths",
+            return_value=[watch_events_path],
+        ):
+            # Act
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_top_videos(params)
+
+        # Assert: 視聴イベント数降順でソートされている
+        for i in range(len(result) - 1):
+            assert result[i]["watch_event_count"] >= result[i + 1]["watch_event_count"]
 
 
 class TestGetTopChannels:
@@ -381,92 +435,77 @@ class TestGetTopChannels:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        watches_parquet_path = youtube_with_sample_data.test_watches_parquet_path
-        videos_parquet_path = youtube_with_sample_data.test_videos_parquet_path
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
 
         with patch(
             "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[watches_parquet_path],
+            return_value=[watch_events_path],
         ):
-            with patch(
-                "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                return_value=videos_parquet_path,
-            ):
-                # Act
-                params = YouTubeQueryParams(
-                    conn=youtube_with_sample_data,
-                    bucket=bucket,
-                    events_path=events_path,
-                    master_path="master/",
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 1, 3),
-                )
-                result = get_top_channels(params)
+            # Act
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_top_channels(params)
 
         # Assert
         assert len(result) > 0
         assert "channel_id" in result[0]
         assert "channel_name" in result[0]
-        assert "video_count" in result[0]
-        assert "total_seconds" in result[0]
+        assert "watch_event_count" in result[0]
+        assert "unique_video_count" in result[0]
 
     def test_respects_limit_parameter(self, youtube_with_sample_data):
         """limitパラメータを尊重。"""
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        watches_parquet_path = youtube_with_sample_data.test_watches_parquet_path
-        videos_parquet_path = youtube_with_sample_data.test_videos_parquet_path
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
 
         with patch(
             "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[watches_parquet_path],
+            return_value=[watch_events_path],
         ):
-            with patch(
-                "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                return_value=videos_parquet_path,
-            ):
-                # Act: limit=2で取得
-                params = YouTubeQueryParams(
-                    conn=youtube_with_sample_data,
-                    bucket=bucket,
-                    events_path=events_path,
-                    master_path="master/",
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 1, 3),
-                )
-                result = get_top_channels(params, limit=2)
+            # Act: limit=2で取得
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_top_channels(params, limit=2)
 
         # Assert
         assert len(result) <= 2
 
-    def test_orders_by_total_seconds(self, youtube_with_sample_data):
-        """視聴時間降順でソート。"""
+    def test_orders_by_watch_event_count(self, youtube_with_sample_data):
+        """視聴イベント数降順でソート。"""
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        watches_parquet_path = youtube_with_sample_data.test_watches_parquet_path
-        videos_parquet_path = youtube_with_sample_data.test_videos_parquet_path
+        watch_events_path = youtube_with_sample_data.test_watch_events_parquet_path
 
         with patch(
             "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[watches_parquet_path],
+            return_value=[watch_events_path],
         ):
-            with patch(
-                "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                return_value=videos_parquet_path,
-            ):
-                # Act
-                params = YouTubeQueryParams(
-                    conn=youtube_with_sample_data,
-                    bucket=bucket,
-                    events_path=events_path,
-                    master_path="master/",
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 1, 3),
-                )
-                result = get_top_channels(params)
+            # Act
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket=bucket,
+                events_path=events_path,
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_top_channels(params)
 
-        # Assert: 視聴時間降順でソートされている
+        # Assert: 視聴イベント数降順でソートされている
         for i in range(len(result) - 1):
-            assert result[i]["total_seconds"] >= result[i + 1]["total_seconds"]
+            assert result[i]["watch_event_count"] >= result[i + 1]["watch_event_count"]

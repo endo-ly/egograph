@@ -9,6 +9,8 @@ from backend.api.schemas.data import (
     TopChannelResponse,
     TopDomainResponse,
     TopTrackResponse,
+    TopVideoResponse,
+    WatchEventResponse,
     WatchHistoryResponse,
     WatchingStatsResponse,
 )
@@ -25,10 +27,12 @@ __all__ = [
     "TopTrackResponse",
     "ListeningStatsResponse",
     "PageViewResponse",
+    "WatchEventResponse",
     "WatchHistoryResponse",
     "WatchingStatsResponse",
     "TopDomainResponse",
     "TopChannelResponse",
+    "TopVideoResponse",
     # GitHub API スキーマ
     "PullRequestResponse",
     "CommitResponse",
