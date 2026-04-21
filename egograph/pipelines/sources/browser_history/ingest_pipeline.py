@@ -1,5 +1,6 @@
 """Browser history ingestion pipeline."""
 
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -13,6 +14,12 @@ from pipelines.sources.browser_history.storage import BrowserHistoryStorage
 from pipelines.sources.browser_history.transform import (
     transform_payload_to_page_view_rows,
 )
+from pipelines.sources.browser_history.youtube_extraction import (
+    extract_youtube_watch_events,
+    group_watch_events_by_month,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -72,6 +79,24 @@ def run_browser_history_pipeline(
                     f"Failed to save browser history events for {year}-{month:02d}"
                 )
         events_saved = True
+
+    # YouTube watch event 抽出・保存
+    youtube_events = extract_youtube_watch_events(rows)
+    if youtube_events:
+        youtube_monthly = group_watch_events_by_month(youtube_events)
+        for (year, month), month_events in youtube_monthly.items():
+            saved_key = storage.save_parquet(
+                month_events,
+                year=year,
+                month=month,
+                prefix="youtube/watch_events",
+            )
+            if not saved_key:
+                logger.warning(
+                    "Failed to save YouTube watch events for %d-%02d",
+                    year,
+                    month,
+                )
 
     state = BrowserHistoryIngestState(
         sync_id=str(payload.sync_id),
