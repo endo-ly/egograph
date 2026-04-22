@@ -246,7 +246,9 @@ def get_watching_stats(
             strftime(w.watched_at_utc::DATE, '{date_format}') as period,
             COUNT(*) as watch_event_count,
             COUNT(DISTINCT w.video_id) as unique_video_count,
-            COUNT(DISTINCT w.channel_id) as unique_channel_count
+            COUNT(DISTINCT CASE
+                WHEN w.channel_id IS NOT NULL THEN w.channel_id
+            END) as unique_channel_count
         FROM read_parquet(?) w
         WHERE w.watched_at_utc::DATE BETWEEN ? AND ?
         GROUP BY period
@@ -354,6 +356,7 @@ def get_top_channels(
             COUNT(DISTINCT w.video_id) as unique_video_count
         FROM read_parquet(?) w
         WHERE w.watched_at_utc::DATE BETWEEN ? AND ?
+            AND w.channel_id IS NOT NULL
         GROUP BY w.channel_id
         ORDER BY watch_event_count DESC
         LIMIT ?

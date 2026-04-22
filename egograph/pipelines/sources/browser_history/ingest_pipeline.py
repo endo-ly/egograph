@@ -92,7 +92,7 @@ def run_browser_history_pipeline(
     # YouTube watch event 抽出・メタデータ解決・保存
     youtube_events = extract_youtube_watch_events(rows)
     if youtube_events:
-        # メタデータ解決（API クライアントが利用可能な場合）
+        # メタデータ解決 (API クライアントが利用可能な場合)
         resolved = None
         if youtube_api_client is not None:
             resolved = resolve_youtube_metadata(youtube_events, youtube_api_client)
@@ -119,7 +119,7 @@ def run_browser_history_pipeline(
                 prefix="youtube/watch_events",
             )
             if not saved_key:
-                logger.warning(
+                logger.error(
                     "Failed to save YouTube watch events for %d-%02d",
                     year,
                     month,
