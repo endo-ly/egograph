@@ -80,6 +80,43 @@ def _generate_partition_paths(
     return paths
 
 
+def _resolve_watch_event_paths(params: YouTubeQueryParams) -> list[str]:
+    """実在する月パーティションのみを返し、未作成時は全体globへフォールバックする。"""
+    partition_paths = _generate_partition_paths(
+        params.bucket, params.events_path, params.start_date, params.end_date
+    )
+    existing_paths: list[str] = []
+
+    for path in partition_paths:
+        try:
+            matched_count = params.conn.execute(
+                "SELECT COUNT(*) FROM glob(?)",
+                [path],
+            ).fetchone()[0]
+        except duckdb.Error:
+            logger.warning(
+                "Failed to validate partition path with glob(); "
+                "fallback to dataset glob: %s",
+                path,
+                exc_info=True,
+            )
+            return [get_watch_events_parquet_path(params.bucket, params.events_path)]
+        if matched_count > 0:
+            existing_paths.append(path)
+
+    if existing_paths:
+        return existing_paths
+
+    fallback = get_watch_events_parquet_path(params.bucket, params.events_path)
+    logger.debug(
+        "No month partitions found for %s to %s; fallback to dataset glob: %s",
+        params.start_date,
+        params.end_date,
+        fallback,
+    )
+    return [fallback]
+
+
 def execute_query(
     conn: duckdb.DuckDBPyConnection, sql: str, params: list[Any] | None = None
 ) -> list[dict[str, Any]]:
@@ -129,9 +166,7 @@ def _base_query_params(params: YouTubeQueryParams) -> list[Any]:
     return [
         get_videos_parquet_path(params.bucket, params.master_path),
         get_channels_parquet_path(params.bucket, params.master_path),
-        _generate_partition_paths(
-            params.bucket, params.events_path, params.start_date, params.end_date
-        ),
+        _resolve_watch_event_paths(params),
         params.start_date,
         params.end_date,
     ]
@@ -169,7 +204,7 @@ def get_watching_stats(
     """期間別の視聴統計を取得します。"""
     date_format_map = {
         "day": "%Y-%m-%d",
-        "week": "%Y-W%V",
+        "week": "%G-W%V",
         "month": "%Y-%m",
     }
     if granularity not in date_format_map:

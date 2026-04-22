@@ -101,11 +101,11 @@ class YouTubeAPIClient:
         for index in range(0, len(ids), YOUTUBE_API_BATCH_SIZE):
             batch_ids = ids[index : index + YOUTUBE_API_BATCH_SIZE]
             logger.debug(
-                "Fetching %s (batch %d/%d): %s",
+                "Fetching %s (batch %d/%d, batch_size=%d)",
                 endpoint,
                 (index // YOUTUBE_API_BATCH_SIZE) + 1,
                 (len(ids) + YOUTUBE_API_BATCH_SIZE - 1) // YOUTUBE_API_BATCH_SIZE,
-                ",".join(batch_ids),
+                len(batch_ids),
             )
             data = self._make_request_with_retry(
                 f"{self.base_url}/{endpoint}",

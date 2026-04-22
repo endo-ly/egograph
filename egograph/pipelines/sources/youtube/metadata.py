@@ -51,11 +51,11 @@ def enrich_watch_events_with_metadata(
             {
                 **event,
                 "video_title": video.get("title") or event["video_title"],
-                "channel_id": video.get("channel_id"),
+                "channel_id": video.get("channel_id") or event["channel_id"],
                 "channel_name": (
-                    channel.get("channel_name")
-                    if channel is not None
-                    else video.get("channel_name")
+                    (channel.get("channel_name") if channel is not None else None)
+                    or video.get("channel_name")
+                    or event["channel_name"]
                 ),
             }
         )

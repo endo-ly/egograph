@@ -296,6 +296,7 @@ YouTube は単なるドメインフィルタではなく、動画・チャンネ
 
 ```json
 {
+  "sync_id": "browser_sync_20260421T120000Z",
   "page_view_id": "pv_123",
   "started_at_utc": "2026-04-21T12:00:00Z",
   "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -321,6 +322,7 @@ YouTube は単なるドメインフィルタではなく、動画・チャンネ
   "source": "browser_history",
   "source_event_id": "pv_123",
   "source_device": "desktop-main",
+  "browser_history_sync_id": "browser_sync_20260421T120000Z",
   "ingested_at_utc": "2026-04-21T12:10:00Z"
 }
 ```

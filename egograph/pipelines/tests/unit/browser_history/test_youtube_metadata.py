@@ -220,6 +220,33 @@ def test_fill_watch_event_metadata_from_video_master():
     assert enriched[1]["channel_name"] == "Channel Two"
 
 
+def test_preserves_event_channel_fields_when_video_channel_fields_are_missing():
+    """video/channel のメタデータ欠損時は event 側の channel を維持する。"""
+    events = [
+        _watch_event(
+            "vid1",
+            channel_id="event-channel-id",
+            channel_name="Event Channel Name",
+        )
+    ]
+    video_master = [
+        {
+            "video_id": "vid1",
+            "title": "API Title",
+            "channel_id": None,
+            "channel_name": None,
+            "content_type": "video",
+            "updated_at": datetime(2026, 4, 21, 12, 0, tzinfo=timezone.utc),
+        }
+    ]
+
+    enriched = enrich_watch_events_with_metadata(events, video_master, [])
+
+    assert len(enriched) == 1
+    assert enriched[0]["channel_id"] == "event-channel-id"
+    assert enriched[0]["channel_name"] == "Event Channel Name"
+
+
 # --- Test 5: API エラー時は None を返す ---
 
 

@@ -2,6 +2,8 @@
 
 import json
 import logging
+import random
+import time
 from datetime import datetime
 from io import BytesIO
 from typing import Any
@@ -12,6 +14,9 @@ import pyarrow.parquet as pq
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
+
+MAX_MASTER_SAVE_RETRIES = 3
+MASTER_SAVE_BACKOFF_SECONDS = 0.2
 
 
 def _normalize_path(path: str) -> str:
@@ -166,12 +171,11 @@ class YouTubeStorage:
         """video master snapshot を upsert 保存する。"""
         if not rows:
             return None
-        merged_rows = self._merge_master_rows(
-            existing_rows=self.load_video_master(),
-            incoming_rows=rows,
+        return self._save_master_snapshot_with_retry(
+            rows=rows,
             id_key="video_id",
+            key=self.build_video_master_key(),
         )
-        return self._save_dataframe_key(merged_rows, self.build_video_master_key())
 
     def save_channel_master(
         self,
@@ -180,23 +184,29 @@ class YouTubeStorage:
         """channel master snapshot を upsert 保存する。"""
         if not rows:
             return None
-        merged_rows = self._merge_master_rows(
-            existing_rows=self.load_channel_master(),
-            incoming_rows=rows,
+        return self._save_master_snapshot_with_retry(
+            rows=rows,
             id_key="channel_id",
+            key=self.build_channel_master_key(),
         )
-        return self._save_dataframe_key(merged_rows, self.build_channel_master_key())
 
     def _load_master_rows(self, key: str) -> list[dict[str, Any]]:
+        rows, _ = self._load_master_rows_with_etag(key)
+        return rows
+
+    def _load_master_rows_with_etag(
+        self, key: str
+    ) -> tuple[list[dict[str, Any]], str | None]:
         try:
             response = self.s3.get_object(Bucket=self.bucket_name, Key=key)
         except ClientError as exc:
             if exc.response["Error"]["Code"] == "NoSuchKey":
-                return []
+                return [], None
             logger.exception("Failed to load youtube master snapshot: key=%s", key)
             raise
         frame = pd.read_parquet(BytesIO(response["Body"].read()), engine="pyarrow")
-        return frame.to_dict(orient="records")
+        etag = response.get("ETag") if isinstance(response.get("ETag"), str) else None
+        return frame.to_dict(orient="records"), etag
 
     def _merge_master_rows(
         self,
@@ -217,17 +227,98 @@ class YouTubeStorage:
         return [merged[row_id] for row_id in sorted(merged)]
 
     def _save_dataframe_key(self, rows: list[dict[str, Any]], key: str) -> str | None:
+        return self._save_dataframe_key_with_condition(rows, key)
+
+    def _save_master_snapshot_with_retry(
+        self,
+        *,
+        rows: list[dict[str, Any]],
+        id_key: str,
+        key: str,
+    ) -> str | None:
+        for attempt in range(MAX_MASTER_SAVE_RETRIES):
+            existing_rows, etag = self._load_master_rows_with_etag(key)
+            merged_rows = self._merge_master_rows(
+                existing_rows=existing_rows,
+                incoming_rows=rows,
+                id_key=id_key,
+            )
+            try:
+                return self._save_dataframe_key_with_condition(
+                    merged_rows,
+                    key,
+                    if_match=etag if etag else None,
+                    if_none_match="*" if etag is None else None,
+                    reraise=True,
+                )
+            except ClientError as exc:
+                error_code = exc.response.get("Error", {}).get("Code")
+                status_code = exc.response.get("ResponseMetadata", {}).get(
+                    "HTTPStatusCode"
+                )
+                is_conflict = (
+                    error_code
+                    in {
+                        "PreconditionFailed",
+                        "ConditionalRequestConflict",
+                    }
+                    or status_code == 412
+                )
+                if not is_conflict:
+                    logger.exception(
+                        "Failed to save youtube master snapshot: key=%s", key
+                    )
+                    return None
+
+                if attempt >= MAX_MASTER_SAVE_RETRIES - 1:
+                    logger.error(
+                        "Master snapshot save conflict exceeded retries: key=%s",
+                        key,
+                    )
+                    return None
+
+                sleep_seconds = MASTER_SAVE_BACKOFF_SECONDS * (
+                    2**attempt
+                ) + random.uniform(0.0, 0.05)
+                logger.warning(
+                    "Master snapshot save conflict (attempt %d/%d). "
+                    "Retrying in %.2fs: key=%s",
+                    attempt + 1,
+                    MAX_MASTER_SAVE_RETRIES,
+                    sleep_seconds,
+                    key,
+                )
+                time.sleep(sleep_seconds)
+        return None
+
+    def _save_dataframe_key_with_condition(
+        self,
+        rows: list[dict[str, Any]],
+        key: str,
+        *,
+        if_match: str | None = None,
+        if_none_match: str | None = None,
+        reraise: bool = False,
+    ) -> str | None:
         try:
             buffer = BytesIO()
             pd.DataFrame(rows).to_parquet(buffer, index=False, engine="pyarrow")
             buffer.seek(0)
+            put_kwargs: dict[str, Any] = {}
+            if if_match is not None:
+                put_kwargs["IfMatch"] = if_match
+            if if_none_match is not None:
+                put_kwargs["IfNoneMatch"] = if_none_match
             self.s3.put_object(
                 Bucket=self.bucket_name,
                 Key=key,
                 Body=buffer.getvalue(),
                 ContentType="application/octet-stream",
+                **put_kwargs,
             )
         except Exception:
             logger.exception("Failed to save youtube parquet: key=%s", key)
+            if reraise:
+                raise
             return None
         return key

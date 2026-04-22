@@ -1,7 +1,7 @@
 """YouTube クエリ層のテスト。"""
 
 from datetime import date
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -9,6 +9,7 @@ from backend.infrastructure.database.youtube_queries import (
     DEFAULT_WATCH_EVENTS_LIMIT,
     YouTubeQueryParams,
     _generate_partition_paths,
+    _resolve_watch_event_paths,
     execute_query,
     get_channels_parquet_path,
     get_top_channels,
@@ -133,6 +134,40 @@ class TestGeneratePartitionPaths:
         assert len(paths) == 2
         assert "year=2023/month=12" in paths[0]
         assert "year=2024/month=01" in paths[1]
+
+
+class TestResolveWatchEventPaths:
+    """_resolve_watch_event_paths のテスト。"""
+
+    def test_falls_back_to_dataset_glob_when_no_partition_matches(self):
+        """月パーティションが未作成なら dataset glob にフォールバック。"""
+        conn = Mock()
+        execute_result = Mock()
+        execute_result.fetchone.return_value = (0,)
+        conn.execute.return_value = execute_result
+        params = YouTubeQueryParams(
+            conn=conn,
+            bucket="test-bucket",
+            events_path="events/",
+            master_path="master/",
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 1, 31),
+        )
+        with (
+            patch(
+                "backend.infrastructure.database.youtube_queries._generate_partition_paths",
+                return_value=[
+                    "s3://test/events/youtube/watch_events/year=2024/month=01/**/*.parquet"
+                ],
+            ),
+            patch(
+                "backend.infrastructure.database.youtube_queries.get_watch_events_parquet_path",
+                return_value="s3://test/events/youtube/watch_events/**/*.parquet",
+            ),
+        ):
+            paths = _resolve_watch_event_paths(params)
+
+        assert paths == ["s3://test/events/youtube/watch_events/**/*.parquet"]
 
 
 class TestExecuteQuery:
@@ -336,6 +371,26 @@ class TestGetWatchingStats:
             # Act & Assert
             with pytest.raises(ValueError, match="Invalid granularity"):
                 get_watching_stats(params, granularity="invalid")
+
+    def test_uses_iso_year_for_week_granularity(self, youtube_with_sample_data):
+        """週集計は ISO 年フォーマットを使う。"""
+        with patch_youtube_paths(youtube_with_sample_data):
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket="test-bucket",
+                events_path="events/",
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            with patch(
+                "backend.infrastructure.database.youtube_queries.execute_query",
+                return_value=[],
+            ) as mock_execute:
+                get_watching_stats(params, granularity="week")
+
+        query = mock_execute.call_args.args[1]
+        assert "%G-W%V" in query
 
 
 class TestGetTopVideos:
