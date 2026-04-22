@@ -141,7 +141,6 @@ def run_youtube_ingest(run: WorkflowRun) -> dict[str, object]:
             storage,
             video_master,
             channel_master,
-            sync_id=request.sync_id,
         ):
             raise RuntimeError("Failed to save youtube masters")
 

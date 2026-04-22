@@ -254,7 +254,6 @@ def test_save_video_and_channel_master_parquet():
         mock_storage,
         video_rows,
         channel_rows,
-        sync_id="sync-1",
     )
 
     # Assert

@@ -60,7 +60,7 @@ class TestGetParquetPaths:
         path = get_videos_parquet_path("my-bucket", "master/")
 
         # Assert
-        assert path == "s3://my-bucket/master/youtube/videos/**/*.parquet"
+        assert path == "s3://my-bucket/master/youtube/videos/data.parquet"
 
     def test_get_channels_parquet_path(self):
         """チャンネルマスターのS3パスパターンを生成。"""
@@ -68,7 +68,7 @@ class TestGetParquetPaths:
         path = get_channels_parquet_path("my-bucket", "master/")
 
         # Assert
-        assert path == "s3://my-bucket/master/youtube/channels/**/*.parquet"
+        assert path == "s3://my-bucket/master/youtube/channels/data.parquet"
 
 
 class TestGeneratePartitionPaths:

@@ -143,39 +143,78 @@ class YouTubeStorage:
         )
         return self._save_dataframe_key(rows, key)
 
+    def build_video_master_key(self) -> str:
+        """video master の固定保存キーを返す。"""
+        return f"{self.master_path}youtube/videos/data.parquet"
+
+    def build_channel_master_key(self) -> str:
+        """channel master の固定保存キーを返す。"""
+        return f"{self.master_path}youtube/channels/data.parquet"
+
+    def load_video_master(self) -> list[dict[str, Any]]:
+        """既存 video master snapshot を読み込む。"""
+        return self._load_master_rows(self.build_video_master_key())
+
+    def load_channel_master(self) -> list[dict[str, Any]]:
+        """既存 channel master snapshot を読み込む。"""
+        return self._load_master_rows(self.build_channel_master_key())
+
     def save_video_master(
         self,
         rows: list[dict[str, Any]],
-        *,
-        year: int,
-        month: int,
-        sync_id: str,
     ) -> str | None:
-        """video master parquet を保存する。"""
+        """video master snapshot を upsert 保存する。"""
         if not rows:
             return None
-        key = (
-            f"{self.master_path}youtube/videos/year={year}/month={month:02d}/"
-            f"sync_id={sync_id}.parquet"
+        merged_rows = self._merge_master_rows(
+            existing_rows=self.load_video_master(),
+            incoming_rows=rows,
+            id_key="video_id",
         )
-        return self._save_dataframe_key(rows, key)
+        return self._save_dataframe_key(merged_rows, self.build_video_master_key())
 
     def save_channel_master(
         self,
         rows: list[dict[str, Any]],
-        *,
-        year: int,
-        month: int,
-        sync_id: str,
     ) -> str | None:
-        """channel master parquet を保存する。"""
+        """channel master snapshot を upsert 保存する。"""
         if not rows:
             return None
-        key = (
-            f"{self.master_path}youtube/channels/year={year}/month={month:02d}/"
-            f"sync_id={sync_id}.parquet"
+        merged_rows = self._merge_master_rows(
+            existing_rows=self.load_channel_master(),
+            incoming_rows=rows,
+            id_key="channel_id",
         )
-        return self._save_dataframe_key(rows, key)
+        return self._save_dataframe_key(merged_rows, self.build_channel_master_key())
+
+    def _load_master_rows(self, key: str) -> list[dict[str, Any]]:
+        try:
+            response = self.s3.get_object(Bucket=self.bucket_name, Key=key)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "NoSuchKey":
+                return []
+            logger.exception("Failed to load youtube master snapshot: key=%s", key)
+            raise
+        frame = pd.read_parquet(BytesIO(response["Body"].read()), engine="pyarrow")
+        return frame.to_dict(orient="records")
+
+    def _merge_master_rows(
+        self,
+        *,
+        existing_rows: list[dict[str, Any]],
+        incoming_rows: list[dict[str, Any]],
+        id_key: str,
+    ) -> list[dict[str, Any]]:
+        merged: dict[str, dict[str, Any]] = {}
+        for row in existing_rows:
+            row_id = row.get(id_key)
+            if isinstance(row_id, str) and row_id:
+                merged[row_id] = row
+        for row in incoming_rows:
+            row_id = row.get(id_key)
+            if isinstance(row_id, str) and row_id:
+                merged[row_id] = row
+        return [merged[row_id] for row_id in sorted(merged)]
 
     def _save_dataframe_key(self, rows: list[dict[str, Any]], key: str) -> str | None:
         try:

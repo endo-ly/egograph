@@ -182,6 +182,7 @@ watch event として扱うのは、動画を一意に特定できる URL のみ
 
 - **Events パーティションキー**: `year`, `month`
 - **理由**: watch event は時系列で参照されるため
+- **Master 保存方式**: `video_id` / `channel_id` 単位で upsert した単一 snapshot
 
 ---
 
@@ -198,13 +199,9 @@ s3://ego-graph/
   │               └── sync_id={sync_id}.parquet
   ├── master/youtube/
   │   ├── videos/
-  │   │   └── year=YYYY/
-  │   │       └── month=MM/
-  │   │           └── sync_id={sync_id}.parquet
+  │   │   └── data.parquet
   │   └── channels/
-  │       └── year=YYYY/
-  │           └── month=MM/
-  │               └── sync_id={sync_id}.parquet
+  │       └── data.parquet
   └── state/
       └── youtube/
           └── browser_history_syncs/
@@ -214,8 +211,8 @@ s3://ego-graph/
 ### 5.2 保存パス例
 
 - **Watch Events**: `s3://ego-graph/events/youtube/watch_events/year=2026/month=04/sync_id=abc123.parquet`
-- **Videos Master**: `s3://ego-graph/master/youtube/videos/year=2026/month=04/sync_id=abc123.parquet`
-- **Channels Master**: `s3://ego-graph/master/youtube/channels/year=2026/month=04/sync_id=abc123.parquet`
+- **Videos Master**: `s3://ego-graph/master/youtube/videos/data.parquet`
+- **Channels Master**: `s3://ego-graph/master/youtube/channels/data.parquet`
 - **Raw**: `s3://ego-graph/raw/browser_history/2026-04-21T120000.json` を原本として参照
 - **State**: `s3://ego-graph/state/youtube/browser_history_syncs/abc123.json`
 

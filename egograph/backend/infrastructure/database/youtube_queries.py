@@ -30,8 +30,8 @@ YOUTUBE_WATCH_EVENTS_PATH = (
     "s3://{bucket}/{events_path}youtube/watch_events/**/*.parquet"
 )
 YOUTUBE_WATCH_EVENTS_PARTITION_PATH = "s3://{bucket}/{events_path}youtube/watch_events/year={year}/month={month}/**/*.parquet"
-YOUTUBE_VIDEOS_PATH = "s3://{bucket}/{master_path}youtube/videos/**/*.parquet"
-YOUTUBE_CHANNELS_PATH = "s3://{bucket}/{master_path}youtube/channels/**/*.parquet"
+YOUTUBE_VIDEOS_PATH = "s3://{bucket}/{master_path}youtube/videos/data.parquet"
+YOUTUBE_CHANNELS_PATH = "s3://{bucket}/{master_path}youtube/channels/data.parquet"
 
 
 def get_watch_events_parquet_path(bucket: str, events_path: str) -> str:
@@ -91,30 +91,12 @@ def execute_query(
 def _latest_master_ctes() -> str:
     return """
         latest_videos AS (
-            SELECT * EXCLUDE (rn)
-            FROM (
-                SELECT
-                    *,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY video_id
-                        ORDER BY updated_at DESC NULLS LAST
-                    ) AS rn
-                FROM read_parquet(?)
-            )
-            WHERE rn = 1
+            SELECT *
+            FROM read_parquet(?)
         ),
         latest_channels AS (
-            SELECT * EXCLUDE (rn)
-            FROM (
-                SELECT
-                    *,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY channel_id
-                        ORDER BY updated_at DESC NULLS LAST
-                    ) AS rn
-                FROM read_parquet(?)
-            )
-            WHERE rn = 1
+            SELECT *
+            FROM read_parquet(?)
         ),
         filtered_watch_events AS (
             SELECT *

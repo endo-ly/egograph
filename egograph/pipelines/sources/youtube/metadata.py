@@ -1,7 +1,6 @@
 """YouTube metadata resolution helpers."""
 
 import logging
-from datetime import datetime, timezone
 
 import requests
 
@@ -103,32 +102,12 @@ def save_youtube_masters(
     storage: YouTubeStorage,
     video_rows: list[dict],
     channel_rows: list[dict],
-    *,
-    sync_id: str,
-    now: datetime | None = None,
 ) -> bool:
-    """video / channel master parquet を保存する。"""
-    current = now or datetime.now(timezone.utc)
+    """video / channel master snapshot を保存する。"""
     video_key = True
     channel_key = True
     if video_rows:
-        video_key = (
-            storage.save_video_master(
-                video_rows,
-                year=current.year,
-                month=current.month,
-                sync_id=sync_id,
-            )
-            is not None
-        )
+        video_key = storage.save_video_master(video_rows) is not None
     if channel_rows:
-        channel_key = (
-            storage.save_channel_master(
-                channel_rows,
-                year=current.year,
-                month=current.month,
-                sync_id=sync_id,
-            )
-            is not None
-        )
+        channel_key = storage.save_channel_master(channel_rows) is not None
     return video_key and channel_key
