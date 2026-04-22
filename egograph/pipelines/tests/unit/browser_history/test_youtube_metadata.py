@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+import requests
 from pipelines.sources.youtube.metadata import (
     build_channel_master_rows,
     build_video_master_rows,
@@ -227,7 +228,7 @@ def test_fail_pipeline_when_metadata_resolution_is_unavailable():
     # Arrange
     events = [_watch_event()]
     mock_client = MagicMock()
-    mock_client.get_videos.side_effect = RuntimeError("API quota exceeded")
+    mock_client.get_videos.side_effect = requests.HTTPError("API quota exceeded")
 
     # Act
     result = resolve_youtube_metadata(events, mock_client)

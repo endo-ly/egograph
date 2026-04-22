@@ -1,12 +1,12 @@
 """YouTube クエリ層のテスト。"""
 
-from contextlib import ExitStack
 from datetime import date
 from unittest.mock import patch
 
 import pytest
 
 from backend.infrastructure.database.youtube_queries import (
+    DEFAULT_WATCH_EVENTS_LIMIT,
     YouTubeQueryParams,
     _generate_partition_paths,
     execute_query,
@@ -18,29 +18,7 @@ from backend.infrastructure.database.youtube_queries import (
     get_watch_events_parquet_path,
     get_watching_stats,
 )
-
-
-def _patch_youtube_paths(youtube_with_sample_data):
-    stack = ExitStack()
-    stack.enter_context(
-        patch(
-            "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-            return_value=[youtube_with_sample_data.test_watch_events_parquet_path],
-        )
-    )
-    stack.enter_context(
-        patch(
-            "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-            return_value=youtube_with_sample_data.test_videos_parquet_path,
-        )
-    )
-    stack.enter_context(
-        patch(
-            "backend.infrastructure.database.youtube_queries.get_channels_parquet_path",
-            return_value=youtube_with_sample_data.test_channels_parquet_path,
-        )
-    )
-    return stack
+from backend.tests.fixtures.youtube import patch_youtube_paths
 
 
 class TestYouTubeQueryParams:
@@ -211,7 +189,7 @@ class TestGetWatchEvents:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -234,7 +212,7 @@ class TestGetWatchEvents:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act: 2024-01-01のデータのみ取得
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -254,7 +232,7 @@ class TestGetWatchEvents:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act: limit=2で取得
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -269,6 +247,28 @@ class TestGetWatchEvents:
         # Assert
         assert len(result) <= 2
 
+    def test_applies_default_limit_when_limit_is_none(self, youtube_with_sample_data):
+        """limit未指定でも bounded query として実行する。"""
+        with patch_youtube_paths(youtube_with_sample_data):
+            params = YouTubeQueryParams(
+                conn=youtube_with_sample_data,
+                bucket="test-bucket",
+                events_path="events/",
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            with patch(
+                "backend.infrastructure.database.youtube_queries.execute_query",
+                return_value=[],
+            ) as mock_execute:
+                get_watch_events(params)
+
+        query = mock_execute.call_args.args[1]
+        query_params = mock_execute.call_args.args[2]
+        assert f"LIMIT COALESCE(?, {DEFAULT_WATCH_EVENTS_LIMIT})" in query
+        assert query_params[-1] is None
+
 
 class TestGetWatchingStats:
     """get_watching_stats のテスト。"""
@@ -278,7 +278,7 @@ class TestGetWatchingStats:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -302,7 +302,7 @@ class TestGetWatchingStats:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -324,7 +324,7 @@ class TestGetWatchingStats:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
                 bucket=bucket,
@@ -346,7 +346,7 @@ class TestGetTopVideos:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -369,7 +369,7 @@ class TestGetTopVideos:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act: limit=2で取得
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -389,7 +389,7 @@ class TestGetTopVideos:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -414,7 +414,7 @@ class TestGetTopChannels:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -438,7 +438,7 @@ class TestGetTopChannels:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act: limit=2で取得
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,
@@ -458,7 +458,7 @@ class TestGetTopChannels:
         # Arrange
         bucket = "test-bucket"
         events_path = "events/"
-        with _patch_youtube_paths(youtube_with_sample_data):
+        with patch_youtube_paths(youtube_with_sample_data):
             # Act
             params = YouTubeQueryParams(
                 conn=youtube_with_sample_data,

@@ -1,6 +1,5 @@
 """YouTube Repository層のテスト。"""
 
-from contextlib import ExitStack
 from datetime import date
 from unittest.mock import MagicMock, patch
 
@@ -8,6 +7,7 @@ from pydantic import SecretStr
 
 from backend.config import R2Config
 from backend.infrastructure.repositories.youtube_repository import YouTubeRepository
+from backend.tests.fixtures.youtube import patch_youtube_paths
 
 
 def _mock_r2_config():
@@ -36,27 +36,7 @@ class TestYouTubeRepository:
             mock_conn.__exit__ = MagicMock(return_value=False)
             mock_conn_class.return_value = mock_conn
 
-            with ExitStack() as stack:
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-                        return_value=[
-                            youtube_with_sample_data.test_watch_events_parquet_path
-                        ],
-                    )
-                )
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                        return_value=youtube_with_sample_data.test_videos_parquet_path,
-                    )
-                )
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries.get_channels_parquet_path",
-                        return_value=youtube_with_sample_data.test_channels_parquet_path,
-                    )
-                )
+            with patch_youtube_paths(youtube_with_sample_data):
                 # Act
                 repo = YouTubeRepository(_mock_r2_config())
                 result = repo.get_watch_events(date(2024, 1, 1), date(2024, 1, 3))
@@ -76,27 +56,7 @@ class TestYouTubeRepository:
             mock_conn.__exit__ = MagicMock(return_value=False)
             mock_conn_class.return_value = mock_conn
 
-            with ExitStack() as stack:
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-                        return_value=[
-                            youtube_with_sample_data.test_watch_events_parquet_path
-                        ],
-                    )
-                )
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                        return_value=youtube_with_sample_data.test_videos_parquet_path,
-                    )
-                )
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries.get_channels_parquet_path",
-                        return_value=youtube_with_sample_data.test_channels_parquet_path,
-                    )
-                )
+            with patch_youtube_paths(youtube_with_sample_data):
                 # Act
                 repo = YouTubeRepository(_mock_r2_config())
                 result = repo.get_watching_stats(
@@ -119,27 +79,7 @@ class TestYouTubeRepository:
             mock_conn.__exit__ = MagicMock(return_value=False)
             mock_conn_class.return_value = mock_conn
 
-            with ExitStack() as stack:
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-                        return_value=[
-                            youtube_with_sample_data.test_watch_events_parquet_path
-                        ],
-                    )
-                )
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                        return_value=youtube_with_sample_data.test_videos_parquet_path,
-                    )
-                )
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries.get_channels_parquet_path",
-                        return_value=youtube_with_sample_data.test_channels_parquet_path,
-                    )
-                )
+            with patch_youtube_paths(youtube_with_sample_data):
                 # Act
                 repo = YouTubeRepository(_mock_r2_config())
                 result = repo.get_top_videos(date(2024, 1, 1), date(2024, 1, 3))
@@ -159,27 +99,7 @@ class TestYouTubeRepository:
             mock_conn.__exit__ = MagicMock(return_value=False)
             mock_conn_class.return_value = mock_conn
 
-            with ExitStack() as stack:
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries._generate_partition_paths",
-                        return_value=[
-                            youtube_with_sample_data.test_watch_events_parquet_path
-                        ],
-                    )
-                )
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries.get_videos_parquet_path",
-                        return_value=youtube_with_sample_data.test_videos_parquet_path,
-                    )
-                )
-                stack.enter_context(
-                    patch(
-                        "backend.infrastructure.database.youtube_queries.get_channels_parquet_path",
-                        return_value=youtube_with_sample_data.test_channels_parquet_path,
-                    )
-                )
+            with patch_youtube_paths(youtube_with_sample_data):
                 # Act
                 repo = YouTubeRepository(_mock_r2_config())
                 result = repo.get_top_channels(date(2024, 1, 1), date(2024, 1, 3))

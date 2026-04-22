@@ -1,6 +1,7 @@
 """YouTube Data API v3 client."""
 
 import logging
+import random
 import time
 from typing import Any
 
@@ -47,6 +48,10 @@ class YouTubeAPIClient:
                                     )
                     except ValueError:
                         pass
+                    raise requests.HTTPError(
+                        "403 Client Error: Forbidden",
+                        response=response,
+                    )
 
                 response.raise_for_status()
                 return response.json()
@@ -57,16 +62,26 @@ class YouTubeAPIClient:
                 requests.ConnectionError,
                 requests.Timeout,
             ) as exc:
+                if (
+                    isinstance(exc, requests.HTTPError)
+                    and exc.response is not None
+                    and 400 <= exc.response.status_code < 500
+                ):
+                    logger.exception("Non-retryable request failed: %s", exc)
+                    raise
+
                 if attempt < MAX_RETRIES - 1:
                     wait_time = RETRY_BACKOFF_FACTOR**attempt
+                    jittered_sleep = wait_time + random.uniform(0, wait_time * 0.1)
                     logger.warning(
-                        "Request failed (attempt %d/%d): %s. Retrying in %d seconds...",
+                        "Request failed (attempt %d/%d): %s. "
+                        "Retrying in %.2f seconds...",
                         attempt + 1,
                         MAX_RETRIES,
                         exc,
-                        wait_time,
+                        jittered_sleep,
                     )
-                    time.sleep(wait_time)
+                    time.sleep(jittered_sleep)
                 else:
                     logger.exception(
                         "Request failed after %d attempts: %s", MAX_RETRIES, exc

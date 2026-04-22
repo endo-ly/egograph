@@ -1,13 +1,18 @@
 """YouTube metadata resolution helpers."""
 
+import logging
 from datetime import datetime, timezone
 
-from pipelines.sources.youtube.api_client import YouTubeAPIClient
+import requests
+
+from pipelines.sources.youtube.api_client import QuotaExceededError, YouTubeAPIClient
 from pipelines.sources.youtube.canonical import (
     transform_channel_info,
     transform_video_info,
 )
 from pipelines.sources.youtube.storage import YouTubeStorage
+
+logger = logging.getLogger(__name__)
 
 
 def build_video_master_rows(
@@ -72,16 +77,21 @@ def resolve_youtube_metadata(
     video_ids = sorted({event["video_id"] for event in events})
     try:
         api_videos = api_client.get_videos(video_ids)
-        video_master = build_video_master_rows(api_videos, content_type_map)
-        channel_ids = sorted(
-            {
-                row["channel_id"]
-                for row in video_master
-                if isinstance(row.get("channel_id"), str)
-            }
-        )
+    except (QuotaExceededError, requests.RequestException):
+        logger.exception("YouTube metadata fetch failed while loading videos")
+        return None
+    video_master = build_video_master_rows(api_videos, content_type_map)
+    channel_ids = sorted(
+        {
+            row["channel_id"]
+            for row in video_master
+            if isinstance(row.get("channel_id"), str)
+        }
+    )
+    try:
         api_channels = api_client.get_channels(channel_ids) if channel_ids else []
-    except Exception:
+    except (QuotaExceededError, requests.RequestException):
+        logger.exception("YouTube metadata fetch failed while loading channels")
         return None
 
     channel_master = build_channel_master_rows(api_channels)

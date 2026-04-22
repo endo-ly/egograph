@@ -229,3 +229,14 @@ def test_extract_youtube_watch_events_with_youtu_be_query_params():
     assert len(events) == 1
     assert events[0]["video_id"] == "xyz789"
     assert events[0]["video_url"] == "https://www.youtube.com/watch?v=xyz789"
+
+
+def test_extract_youtu_be_uses_only_first_path_segment():
+    """youtu.be の余剰 path segment は video_id に含めない。"""
+    rows = [_page_view_row("https://youtu.be/ABCDEF/extra?t=10")]
+
+    events = extract_youtube_watch_events(rows)
+
+    assert len(events) == 1
+    assert events[0]["video_id"] == "ABCDEF"
+    assert events[0]["video_url"] == "https://www.youtube.com/watch?v=ABCDEF"

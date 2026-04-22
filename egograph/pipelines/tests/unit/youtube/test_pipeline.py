@@ -104,5 +104,31 @@ def test_run_youtube_ingest_processes_browser_history_sync(monkeypatch):
 
     assert result["status"] == "succeeded"
     assert result["watch_event_count"] == 1
+    fake_client.get_videos.assert_called_once_with(["video-1"])
+    fake_client.get_channels.assert_called_once_with(["channel-1"])
     fake_storage.save_watch_events.assert_called_once()
+    saved_watch_events = fake_storage.save_watch_events.call_args.args[0]
+    assert saved_watch_events[0]["video_title"] == "API Video 1"
+    assert saved_watch_events[0]["channel_id"] == "channel-1"
+    assert saved_watch_events[0]["channel_name"] == "Channel 1"
+    fake_storage.save_video_master.assert_called_once()
+    fake_storage.save_channel_master.assert_called_once()
     fake_storage.mark_sync_processed.assert_called_once()
+
+
+def test_run_youtube_ingest_skips_invalid_request_payload():
+    """sync_id や month が不正な payload は skip する。"""
+    result = run_youtube_ingest(
+        _run(
+            {
+                "sync_id": "   ",
+                "target_months": [
+                    {"year": 2026, "month": 13},
+                    {"year": -1, "month": 4},
+                ],
+            }
+        )
+    )
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "missing_browser_history_event_context"

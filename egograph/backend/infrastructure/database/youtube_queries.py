@@ -11,6 +11,8 @@ from backend.constants import DEFAULT_TOP_TRACKS_LIMIT
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_WATCH_EVENTS_LIMIT = 100_000
+
 
 @dataclass
 class YouTubeQueryParams:
@@ -171,11 +173,10 @@ def get_watch_events(
             content_type
         FROM enriched_watch_events
         ORDER BY watched_at_utc DESC
+        LIMIT COALESCE(?, {DEFAULT_WATCH_EVENTS_LIMIT})
     """
     query_params = _base_query_params(params)
-    if limit is not None:
-        query += "\nLIMIT ?"
-        query_params.append(limit)
+    query_params.append(limit)
 
     return execute_query(params.conn, query, query_params)
 

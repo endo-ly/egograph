@@ -8,6 +8,7 @@ from typing import Any
 
 import boto3
 import pandas as pd
+import pyarrow.parquet as pq
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,15 @@ class YouTubeStorage:
         target_months: tuple[tuple[int, int], ...],
     ) -> list[dict[str, Any]]:
         """browser history parquet から対象 sync_id の page view rows を取得する。"""
+        required_columns = [
+            "sync_id",
+            "page_view_id",
+            "started_at_utc",
+            "url",
+            "title",
+            "source_device",
+            "ingested_at_utc",
+        ]
         rows: list[dict[str, Any]] = []
         seen_keys: set[str] = set()
         for year, month in target_months:
@@ -105,11 +115,15 @@ class YouTubeStorage:
                         continue
                     seen_keys.add(key)
                     response = self.s3.get_object(Bucket=self.bucket_name, Key=key)
-                    frame = pd.read_parquet(BytesIO(response["Body"].read()))
-                    records = frame.to_dict(orient="records")
-                    rows.extend(
-                        row for row in records if str(row.get("sync_id")) == sync_id
+                    table = pq.read_table(
+                        BytesIO(response["Body"].read()),
+                        columns=required_columns,
+                        filters=[("sync_id", "==", sync_id)],
                     )
+                    if table.num_rows == 0:
+                        continue
+                    frame = table.to_pandas()
+                    rows.extend(frame.to_dict(orient="records"))
         return rows
 
     def save_watch_events(

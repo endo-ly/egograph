@@ -7,13 +7,18 @@ from urllib.parse import parse_qs, urlparse
 _WATCH_EVENT_PREFIX = "youtube_watch_event_"
 
 
+def _extract_youtu_be_video_id(path: str) -> str | None:
+    video_id = path.lstrip("/").split("/", 1)[0]
+    return video_id or None
+
+
 def normalize_youtube_url(url: str) -> str | None:
     """YouTube URL を正規化する。"""
     parsed = urlparse(url)
     host = parsed.hostname or ""
 
     if host in ("youtu.be", "www.youtu.be"):
-        video_id = parsed.path.lstrip("/")
+        video_id = _extract_youtu_be_video_id(parsed.path)
         if not video_id:
             return None
         return f"https://www.youtube.com/watch?v={video_id}"
@@ -40,8 +45,7 @@ def extract_video_id(url: str) -> str | None:
         return None
 
     if host in ("youtu.be", "www.youtu.be"):
-        video_id = path.lstrip("/")
-        return video_id or None
+        return _extract_youtu_be_video_id(path)
 
     if path.startswith("/shorts/"):
         parts = path.split("/")

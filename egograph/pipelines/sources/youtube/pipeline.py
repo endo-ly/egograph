@@ -60,7 +60,9 @@ def _parse_request(run: WorkflowRun) -> YouTubeIngestRequest | None:
     summary = run.result_summary or {}
     sync_id = summary.get("sync_id")
     raw_months = summary.get("target_months")
-    if not isinstance(sync_id, str) or not isinstance(raw_months, list):
+    if not isinstance(sync_id, str) or not sync_id.strip():
+        return None
+    if not isinstance(raw_months, list):
         return None
 
     target_months: list[tuple[int, int]] = []
@@ -69,12 +71,20 @@ def _parse_request(run: WorkflowRun) -> YouTubeIngestRequest | None:
             continue
         year = item.get("year")
         month = item.get("month")
-        if isinstance(year, int) and isinstance(month, int):
+        if (
+            isinstance(year, int)
+            and isinstance(month, int)
+            and 1 <= year <= 9999
+            and 1 <= month <= 12
+        ):
             target_months.append((year, month))
 
     if not target_months:
         return None
-    return YouTubeIngestRequest(sync_id=sync_id, target_months=tuple(target_months))
+    return YouTubeIngestRequest(
+        sync_id=sync_id.strip(),
+        target_months=tuple(target_months),
+    )
 
 
 def run_youtube_ingest(run: WorkflowRun) -> dict[str, object]:

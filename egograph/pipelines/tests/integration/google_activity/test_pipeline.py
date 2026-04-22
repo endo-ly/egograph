@@ -221,14 +221,6 @@ async def test_pipeline_with_multiple_months():
     mock_api_client.get_videos.return_value = []
     mock_api_client.get_channels.return_value = []
 
-    mock_api_client = MagicMock()
-    mock_api_client.get_videos.return_value = []
-    mock_api_client.get_channels.return_value = []
-
-    mock_api_client = MagicMock()
-    mock_api_client.get_videos.return_value = []
-    mock_api_client.get_channels.return_value = []
-
     # Act
     with (
         patch(
