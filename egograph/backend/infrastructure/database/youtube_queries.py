@@ -125,60 +125,100 @@ def execute_query(
     return result.df().to_dict(orient="records")
 
 
-def _latest_master_ctes() -> str:
-    return """
-        latest_videos AS (
-            SELECT *
-            FROM read_parquet(?)
-        ),
-        latest_channels AS (
-            SELECT *
-            FROM read_parquet(?)
-        ),
-        filtered_watch_events AS (
-            SELECT *
-            FROM read_parquet(?)
-            WHERE watched_at_utc::DATE BETWEEN ? AND ?
-        ),
-        enriched_watch_events AS (
-            SELECT
-                w.watch_event_id,
-                w.watched_at_utc,
-                w.video_id,
-                w.video_url,
-                COALESCE(v.title, w.video_title) AS video_title,
-                COALESCE(v.channel_id, w.channel_id) AS channel_id,
-                COALESCE(
-                    c.channel_name,
-                    v.channel_name,
-                    w.channel_name
-                ) AS channel_name,
-                w.content_type
-            FROM filtered_watch_events w
-            LEFT JOIN latest_videos v USING (video_id)
-            LEFT JOIN latest_channels c
-                ON COALESCE(v.channel_id, w.channel_id) = c.channel_id
-        )
+def _parquet_file_exists(conn: duckdb.DuckDBPyConnection, path: str) -> bool:
+    """DuckDB glob で Parquet ファイルの存在を確認する。"""
+    try:
+        matched_count = conn.execute(
+            "SELECT COUNT(*) FROM glob(?)", [path]
+        ).fetchone()[0]
+        return matched_count > 0
+    except duckdb.Error:
+        logger.warning("Failed to check parquet existence: %s", path, exc_info=True)
+        return False
+
+
+def _build_enriched_cte(
+    params: YouTubeQueryParams,
+) -> tuple[str, list[Any]]:
+    """マスターデータの有無に応じた CTE とパラメータを構築する。
+
+    マスター Parquet が存在しない場合は、空結果の CTE を生成し
+    LEFT JOIN + COALESCE で watch events 側の値がそのまま使われるようにする。
     """
+    videos_path = get_videos_parquet_path(params.bucket, params.master_path)
+    channels_path = get_channels_parquet_path(params.bucket, params.master_path)
 
+    has_videos = _parquet_file_exists(params.conn, videos_path)
+    has_channels = _parquet_file_exists(params.conn, channels_path)
 
-def _base_query_params(params: YouTubeQueryParams) -> list[Any]:
-    return [
-        get_videos_parquet_path(params.bucket, params.master_path),
-        get_channels_parquet_path(params.bucket, params.master_path),
+    ctes: list[str] = []
+    sql_params: list[Any] = []
+
+    if has_videos:
+        ctes.append("latest_videos AS (SELECT * FROM read_parquet(?))")
+        sql_params.append(videos_path)
+    else:
+        logger.debug("Video master parquet not found: %s", videos_path)
+        ctes.append(
+            "latest_videos AS ("
+            "SELECT NULL::VARCHAR AS video_id, "
+            "NULL::VARCHAR AS title, "
+            "NULL::VARCHAR AS channel_id, "
+            "NULL::VARCHAR AS channel_name "
+            "WHERE 1=0)"
+        )
+
+    if has_channels:
+        ctes.append("latest_channels AS (SELECT * FROM read_parquet(?))")
+        sql_params.append(channels_path)
+    else:
+        logger.debug("Channel master parquet not found: %s", channels_path)
+        ctes.append(
+            "latest_channels AS ("
+            "SELECT NULL::VARCHAR AS channel_id, "
+            "NULL::VARCHAR AS channel_name "
+            "WHERE 1=0)"
+        )
+
+    ctes.append(
+        "filtered_watch_events AS ("
+        "SELECT * FROM read_parquet(?) "
+        "WHERE watched_at_utc::DATE BETWEEN ? AND ?)"
+    )
+    sql_params.extend([
         _resolve_watch_event_paths(params),
         params.start_date,
         params.end_date,
-    ]
+    ])
+
+    ctes.append(
+        "enriched_watch_events AS ("
+        "SELECT "
+        "w.watch_event_id, "
+        "w.watched_at_utc, "
+        "w.video_id, "
+        "w.video_url, "
+        "COALESCE(v.title, w.video_title) AS video_title, "
+        "COALESCE(v.channel_id, w.channel_id) AS channel_id, "
+        "COALESCE(c.channel_name, v.channel_name, w.channel_name) AS channel_name, "
+        "w.content_type "
+        "FROM filtered_watch_events w "
+        "LEFT JOIN latest_videos v USING (video_id) "
+        "LEFT JOIN latest_channels c "
+        "ON COALESCE(v.channel_id, w.channel_id) = c.channel_id)"
+    )
+
+    return ",\n".join(ctes), sql_params
 
 
 def get_watch_events(
     params: YouTubeQueryParams, limit: int | None = None
 ) -> list[dict[str, Any]]:
     """指定期間の視聴イベントを取得します。"""
+    ctes, cte_params = _build_enriched_cte(params)
     query = f"""
         WITH
-        {_latest_master_ctes()}
+        {ctes}
         SELECT
             watch_event_id,
             watched_at_utc,
@@ -192,10 +232,9 @@ def get_watch_events(
         ORDER BY watched_at_utc DESC
         LIMIT COALESCE(?, {DEFAULT_WATCH_EVENTS_LIMIT})
     """
-    query_params = _base_query_params(params)
-    query_params.append(limit)
+    cte_params.append(limit)
 
-    return execute_query(params.conn, query, query_params)
+    return execute_query(params.conn, query, cte_params)
 
 
 def get_watching_stats(
@@ -213,9 +252,10 @@ def get_watching_stats(
             f"{granularity}. Must be one of {list(date_format_map)}"
         )
 
+    ctes, cte_params = _build_enriched_cte(params)
     query = f"""
         WITH
-        {_latest_master_ctes()}
+        {ctes}
         SELECT
             strftime(watched_at_utc::DATE, '{date_format_map[granularity]}') AS period,
             COUNT(*) AS watch_event_count,
@@ -227,16 +267,17 @@ def get_watching_stats(
         GROUP BY period
         ORDER BY period ASC
     """
-    return execute_query(params.conn, query, _base_query_params(params))
+    return execute_query(params.conn, query, cte_params)
 
 
 def get_top_videos(
     params: YouTubeQueryParams, limit: int = DEFAULT_TOP_TRACKS_LIMIT
 ) -> list[dict[str, Any]]:
     """指定期間で最も視聴された動画を取得します。"""
+    ctes, cte_params = _build_enriched_cte(params)
     query = f"""
         WITH
-        {_latest_master_ctes()}
+        {ctes}
         SELECT
             video_id,
             MAX(video_title) AS video_title,
@@ -248,16 +289,17 @@ def get_top_videos(
         ORDER BY watch_event_count DESC
         LIMIT ?
     """
-    return execute_query(params.conn, query, [*_base_query_params(params), limit])
+    return execute_query(params.conn, query, [*cte_params, limit])
 
 
 def get_top_channels(
     params: YouTubeQueryParams, limit: int = DEFAULT_TOP_TRACKS_LIMIT
 ) -> list[dict[str, Any]]:
     """指定期間で最も視聴されたチャンネルを取得します。"""
+    ctes, cte_params = _build_enriched_cte(params)
     query = f"""
         WITH
-        {_latest_master_ctes()}
+        {ctes}
         SELECT
             channel_id,
             MAX(channel_name) AS channel_name,
@@ -269,4 +311,4 @@ def get_top_channels(
         ORDER BY watch_event_count DESC
         LIMIT ?
     """
-    return execute_query(params.conn, query, [*_base_query_params(params), limit])
+    return execute_query(params.conn, query, [*cte_params, limit])

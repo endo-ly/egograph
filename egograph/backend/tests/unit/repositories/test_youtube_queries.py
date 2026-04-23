@@ -3,12 +3,15 @@
 from datetime import date
 from unittest.mock import Mock, patch
 
+import pandas as pd
 import pytest
 
 from backend.infrastructure.database.youtube_queries import (
     DEFAULT_WATCH_EVENTS_LIMIT,
     YouTubeQueryParams,
+    _build_enriched_cte,
     _generate_partition_paths,
+    _parquet_file_exists,
     _resolve_watch_event_paths,
     execute_query,
     get_channels_parquet_path,
@@ -528,3 +531,130 @@ class TestGetTopChannels:
         # Assert: 視聴イベント数降順でソートされている
         for i in range(len(result) - 1):
             assert result[i]["watch_event_count"] >= result[i + 1]["watch_event_count"]
+
+
+class TestParquetFileExists:
+    """_parquet_file_exists のテスト。"""
+
+    def test_returns_true_for_existing_file(self, duckdb_conn, tmp_path):
+        """存在するファイルに対して True を返す。"""
+        # Arrange
+        parquet_path = tmp_path / "exists.parquet"
+        pd.DataFrame({"id": [1]}).to_parquet(parquet_path)
+
+        # Act
+        result = _parquet_file_exists(duckdb_conn, str(parquet_path))
+
+        # Assert
+        assert result is True
+
+    def test_returns_false_for_missing_file(self, duckdb_conn, tmp_path):
+        """存在しないファイルに対して False を返す。"""
+        # Act
+        result = _parquet_file_exists(
+            duckdb_conn, str(tmp_path / "nonexistent.parquet")
+        )
+
+        # Assert
+        assert result is False
+
+
+class TestMissingMasterData:
+    """マスターデータ不存在時の graceful degradation テスト。"""
+
+    def test_get_watch_events_without_master(self, youtube_without_master_data):
+        """マスターなしでも watch events を取得できる。"""
+        with patch_youtube_paths(youtube_without_master_data):
+            params = YouTubeQueryParams(
+                conn=youtube_without_master_data,
+                bucket="test-bucket",
+                events_path="events/",
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_watch_events(params)
+
+        # Assert: watch events の件数はそのまま返る
+        assert len(result) == 5
+        assert "watch_event_id" in result[0]
+        # COALESCE で watch events 側の値が使われる
+        assert result[0]["video_title"] == "Video A"
+        assert result[0]["channel_name"] == "Channel X"
+
+    def test_get_watching_stats_without_master(self, youtube_without_master_data):
+        """マスターなしでも視聴統計を取得できる。"""
+        with patch_youtube_paths(youtube_without_master_data):
+            params = YouTubeQueryParams(
+                conn=youtube_without_master_data,
+                bucket="test-bucket",
+                events_path="events/",
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_watching_stats(params, granularity="day")
+
+        # Assert: 3日分の統計が返る
+        assert len(result) == 3
+        assert result[0]["watch_event_count"] == 2
+
+    def test_get_top_videos_without_master(self, youtube_without_master_data):
+        """マスターなしでもトップ動画を取得できる。"""
+        with patch_youtube_paths(youtube_without_master_data):
+            params = YouTubeQueryParams(
+                conn=youtube_without_master_data,
+                bucket="test-bucket",
+                events_path="events/",
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_top_videos(params)
+
+        # Assert: video_1 が最も再生回数が多い
+        assert len(result) > 0
+        assert result[0]["video_id"] == "video_1"
+        assert result[0]["watch_event_count"] == 3
+        # COALESCE で watch events 側のタイトルが使われる
+        assert result[0]["video_title"] == "Video A"
+
+    def test_get_top_channels_without_master(self, youtube_without_master_data):
+        """マスターなしでもトップチャンネルを取得できる。"""
+        with patch_youtube_paths(youtube_without_master_data):
+            params = YouTubeQueryParams(
+                conn=youtube_without_master_data,
+                bucket="test-bucket",
+                events_path="events/",
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            result = get_top_channels(params)
+
+        # Assert: channel_1 が最も再生回数が多い
+        assert len(result) > 0
+        assert result[0]["channel_id"] == "channel_1"
+        assert result[0]["watch_event_count"] == 3
+
+    def test_build_enriched_cte_without_master(self, youtube_without_master_data):
+        """マスターなしの場合、CTE に read_parquet パラメータが含まれない。"""
+        with patch_youtube_paths(youtube_without_master_data):
+            params = YouTubeQueryParams(
+                conn=youtube_without_master_data,
+                bucket="test-bucket",
+                events_path="events/",
+                master_path="master/",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 3),
+            )
+            ctes, sql_params = _build_enriched_cte(params)
+
+        # Assert: CTE に空テーブル定義が含まれる
+        assert "WHERE 1=0" in ctes
+        assert "latest_videos" in ctes
+        assert "latest_channels" in ctes
+        # read_parquet は watch events の分だけ（マスター分は含まれない）
+        assert "read_parquet" in ctes
+        # パラメータは watch events のパス + 日付のみ
+        assert len(sql_params) == 3  # paths, start_date, end_date

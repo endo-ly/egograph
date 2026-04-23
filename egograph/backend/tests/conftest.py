@@ -297,6 +297,90 @@ def youtube_with_sample_data(duckdb_conn, tmp_path):
     yield wrapper
 
 
+@pytest.fixture
+def youtube_without_master_data(duckdb_conn, tmp_path):
+    """watch events のみで master が存在しない YouTube DuckDB。"""
+    watches_data = pd.DataFrame(
+        {
+            "watch_event_id": [
+                "we_1",
+                "we_2",
+                "we_3",
+                "we_4",
+                "we_5",
+            ],
+            "watched_at_utc": pd.to_datetime(
+                [
+                    "2024-01-01 10:00:00",
+                    "2024-01-01 11:00:00",
+                    "2024-01-02 10:00:00",
+                    "2024-01-02 11:00:00",
+                    "2024-01-03 10:00:00",
+                ]
+            ),
+            "video_id": ["video_1", "video_2", "video_1", "video_3", "video_1"],
+            "video_url": [
+                "https://youtube.com/watch?v=video_1",
+                "https://youtube.com/watch?v=video_2",
+                "https://youtube.com/watch?v=video_1",
+                "https://youtube.com/watch?v=video_3",
+                "https://youtube.com/watch?v=video_1",
+            ],
+            "video_title": [
+                "Video A",
+                "Video B",
+                "Video A",
+                "Video C",
+                "Video A",
+            ],
+            "channel_id": [
+                "channel_1",
+                "channel_2",
+                "channel_1",
+                "channel_3",
+                "channel_1",
+            ],
+            "channel_name": [
+                "Channel X",
+                "Channel Y",
+                "Channel X",
+                "Channel Z",
+                "Channel X",
+            ],
+            "content_type": ["video", "video", "video", "short", "video"],
+            "source": ["browser_history"] * 5,
+            "source_event_id": [
+                "se_1",
+                "se_2",
+                "se_3",
+                "se_4",
+                "se_5",
+            ],
+            "source_device": ["home-pc"] * 5,
+            "ingested_at_utc": pd.to_datetime(["2024-01-01 12:00:00"] * 5),
+        }
+    )
+
+    watch_events_parquet_path = tmp_path / "youtube_watch_events.parquet"
+    watches_data.to_parquet(watch_events_parquet_path)
+
+    duckdb_conn.register("youtube_watches_df", watches_data)
+    duckdb_conn.execute(
+        "CREATE TABLE youtube_watches AS SELECT * FROM youtube_watches_df"
+    )
+    duckdb_conn.unregister("youtube_watches_df")
+
+    wrapper = YouTubeConnectionWrapper(
+        duckdb_conn,
+        str(watch_events_parquet_path),
+        # マスターデータのパスとして存在しないファイルを指定
+        str(tmp_path / "nonexistent_videos.parquet"),
+        str(tmp_path / "nonexistent_channels.parquet"),
+    )
+
+    yield wrapper
+
+
 class BrowserHistoryConnectionWrapper:
     """Browser History用DuckDB接続のラッパー。"""
 
