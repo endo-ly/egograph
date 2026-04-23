@@ -21,7 +21,7 @@ Inside, a vertical flow of four steps connected by downward arrows:
 Below the box: a small "SQLite" badge indicating job/lock state management.
 Label: "EgoGraph Pipelines" below in bold white (#00d4ff tint).
 
-**Layer 3 — EgoGraph Backend** (center):
+**Layer 3 — EgoGraph Backend** (center-right):
 A medium rounded rectangle in dark blue (#0f1923) with a cyan (#00d4ff) border (slightly dimmer than Pipelines).
 Inside, a "Data API" label at top, with icons below:
 - A tool-wrench icon with "Tool Use" text
@@ -29,21 +29,9 @@ Inside, a "Data API" label at top, with icons below:
 - A small "MCP" badge in the bottom-right corner of the box (subtle, indicating future direction)
 Label: "EgoGraph Backend" below.
 
-**Layer 4 — EgoPulse** (right):
-A large rounded rectangle in dark purple (#1a0f23) with a bright magenta (#c084fc) glowing border.
-Inside, an AI brain icon with neural network lines at the top.
-Below it, four interface icons in a row:
-- Terminal window (">_")
-- Globe/browser icon (Web UI)
-- Discord controller icon
-- Telegram paper-plane icon
-Label: "EgoPulse" below in bold white (#c084fc tint).
-
 **Arrows and connections:**
 - Solid cyan arrows: Sources → Pipelines → Backend (left to right data flow)
-- A bidirectional dashed magenta arrow: Backend ↔ EgoPulse (EgoPulse queries data via Backend API, future MCP)
-- A bidirectional solid magenta arrow connects EgoPulse back to a "Mobile App (Android)" icon at the bottom-right corner
-- The EgoPulse box has a small "systemd" badge at the bottom edge
+- A solid blue arrow connects Backend to a "Mobile App (Android)" icon at the bottom-right corner
 
 Style: Flat vector design with subtle neon glow on borders. No gradients except the glow effect. Clean lines, generous spacing. Developer-documentation aesthetic. No photorealism. Dark mode optimized.
 Aspect ratio: 16:9.

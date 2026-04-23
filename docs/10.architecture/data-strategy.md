@@ -65,7 +65,6 @@ Parquet-first は **すべてのデータを Parquet に置く** ことを意味
 |---|---|---|
 | Backend | `data/backend/chat.sqlite` | threads, messages |
 | Pipelines | `data/pipelines/state.sqlite3` | workflow_runs, step_runs, workflow_locks |
-| EgoPulse | `{data_dir}/egopulse.db` | chats, messages, sessions |
 
 ### 2.2 DuckDB — 分析・集計の実行エンジン
 

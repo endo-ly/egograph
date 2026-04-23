@@ -48,9 +48,14 @@ MVPから始め、段階的に機能拡張する。
 |---|---|---|
 | EgoGraph (Backend) | [20.egograph/backend/](../20.egograph/backend/) | Agent API、DDD設計、Tool System、Streaming |
 | EgoGraph (Pipelines) | [20.egograph/pipelines/](../20.egograph/pipelines/) | データ収集サービス、各データソース設計 |
-| EgoPulse | [30.egopulse/](../30.egopulse/) | AIエージェントランタイム（TUI/Web/Discord/Telegram） |
 | Frontend | [40.frontend/](../40.frontend/) | KMP Androidアプリ、MVVM設計 |
 | Deploy | [50.deploy/](../50.deploy/) | 各コンポーネントのデプロイ手順 |
+
+### 関連リポジトリ
+
+| リポジトリ | 内容 |
+|---|---|
+| [endo-ly/egopulse](https://github.com/endo-ly/egopulse) | AIエージェントランタイム（TUI/Web/Discord/Telegram） |
 
 ---
 
