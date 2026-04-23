@@ -126,10 +126,13 @@ def execute_query(
 
 
 def _parquet_file_exists(conn: duckdb.DuckDBPyConnection, path: str) -> bool:
-    """DuckDB glob で Parquet ファイルの存在を確認する。"""
+    """DuckDB glob で親ディレクトリを列挙し、対象パスの厳密一致で存在確認する。"""
     try:
+        parent = path.rsplit("/", 1)[0] if "/" in path else "."
+        probe_glob = f"{parent}/*"
         matched_count = conn.execute(
-            "SELECT COUNT(*) FROM glob(?)", [path]
+            "SELECT COUNT(*) FROM glob(?) WHERE file = ?",
+            [probe_glob, path],
         ).fetchone()[0]
         return matched_count > 0
     except duckdb.Error:

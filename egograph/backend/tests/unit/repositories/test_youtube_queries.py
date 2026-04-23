@@ -558,6 +558,23 @@ class TestParquetFileExists:
         # Assert
         assert result is False
 
+    def test_checks_parent_glob_instead_of_direct_path(self):
+        """完全パス glob の誤検出を避けるため、親ディレクトリ列挙で確認する。"""
+        conn = Mock()
+        execute_result = Mock()
+        execute_result.fetchone.return_value = (0,)
+        conn.execute.return_value = execute_result
+
+        path = "s3://egograph/master/youtube/videos/data.parquet"
+
+        result = _parquet_file_exists(conn, path)
+
+        assert result is False
+        conn.execute.assert_called_once_with(
+            "SELECT COUNT(*) FROM glob(?) WHERE file = ?",
+            ["s3://egograph/master/youtube/videos/*", path],
+        )
+
 
 class TestMissingMasterData:
     """マスターデータ不存在時の graceful degradation テスト。"""
