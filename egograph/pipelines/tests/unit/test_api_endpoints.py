@@ -135,8 +135,8 @@ def test_cancel_run_idempotent_for_non_queued_run(tmp_path):
         assert cancel_again.json()["status"] == "canceled"
 
 
-def test_browser_history_ingest_returns_202_when_youtube_enqueue_fails(tmp_path):
-    """YouTube enqueue 失敗時も compact run 情報を返す。"""
+def test_browser_history_ingest_returns_202_with_compact_run(tmp_path):
+    """Browser history ingest は compact run 情報を返す。"""
     config = PipelinesConfig(
         database_path=tmp_path / "state.sqlite3",
         logs_root=tmp_path / "logs",
@@ -147,9 +147,6 @@ def test_browser_history_ingest_returns_202_when_youtube_enqueue_fails(tmp_path)
     fake_service = SimpleNamespace(
         enqueue_browser_history_compact=lambda *args, **kwargs: SimpleNamespace(
             run_id="compact-run-1"
-        ),
-        enqueue_youtube_ingest=lambda *args, **kwargs: (_ for _ in ()).throw(
-            RuntimeError("youtube enqueue failed")
         ),
     )
     app.dependency_overrides[get_service] = lambda: fake_service
@@ -173,6 +170,7 @@ def test_browser_history_ingest_returns_202_when_youtube_enqueue_fails(tmp_path)
         response = client.post("/v1/ingest/browser-history", json={"dummy": "payload"})
 
     assert response.status_code == 202
-    assert response.json()["run_id"] == "compact-run-1"
-    assert response.json()["youtube_run_id"] is None
-    assert response.json()["youtube_error"] == "youtube enqueue failed"
+    body = response.json()
+    assert body["run_id"] == "compact-run-1"
+    assert body["sync_id"] == "sync-1"
+    assert "youtube_run_id" not in body

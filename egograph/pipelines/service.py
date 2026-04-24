@@ -176,34 +176,29 @@ class PipelineService:
         self,
         targets: list[tuple[int, int]],
         *,
+        sync_id: str | None = None,
+        target_months: list[tuple[int, int]] | None = None,
         requested_by: str = "api",
     ) -> WorkflowRun:
-        """Browser History ingest 後の即時 compact run を積む。"""
-        return self.scheduler.enqueue_event_run(
-            workflow_id="browser_history_compact_workflow",
-            requested_by=requested_by,
-            result_summary={
-                "compaction_targets": [
-                    {"year": year, "month": month} for year, month in targets
-                ]
-            },
-        )
+        """Browser History ingest 後の即時 compact run を積む。
 
-    def enqueue_youtube_ingest(
-        self,
-        *,
-        sync_id: str,
-        target_months: list[tuple[int, int]],
-        requested_by: str = "api",
-    ) -> WorkflowRun:
-        """Browser History ingest 後の YouTube 派生 ingest run を積む。"""
-        return self.scheduler.enqueue_event_run(
-            workflow_id="youtube_ingest_workflow",
-            requested_by=requested_by,
-            result_summary={
+        sync_id / target_months を渡すと
+        compact 完了後に YouTube ingest を enqueue する。
+        """
+        result_summary: dict = {
+            "compaction_targets": [
+                {"year": year, "month": month} for year, month in targets
+            ]
+        }
+        if sync_id and target_months:
+            result_summary["youtube_ingest"] = {
                 "sync_id": sync_id,
                 "target_months": [
                     {"year": year, "month": month} for year, month in target_months
                 ],
-            },
+            }
+        return self.scheduler.enqueue_event_run(
+            workflow_id="browser_history_compact_workflow",
+            requested_by=requested_by,
+            result_summary=result_summary,
         )

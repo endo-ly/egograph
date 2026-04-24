@@ -95,7 +95,13 @@ class YouTubeStorage:
         sync_id: str,
         target_months: tuple[tuple[int, int], ...],
     ) -> list[dict[str, Any]]:
-        """browser history parquet から対象 sync_id の page view rows を取得する。"""
+        """compacted parquet から対象 sync_id の page view rows を取得する。
+
+        compacted parquet は各月ごとに単一ファイル
+        (data.parquet) として存在する。古いレコードは
+        sync_id が NaN のため、sync_id によるフィルタで
+        自然に除外される。
+        """
         required_columns = [
             "sync_id",
             "page_view_id",
@@ -106,29 +112,27 @@ class YouTubeStorage:
             "ingested_at_utc",
         ]
         rows: list[dict[str, Any]] = []
-        seen_keys: set[str] = set()
         for year, month in target_months:
-            prefix = (
-                f"{self.events_path}browser_history/page_views/"
-                f"year={year}/month={month:02d}/"
+            key = (
+                f"compacted/events/browser_history/page_views/"
+                f"year={year}/month={month:02d}/data.parquet"
             )
-            paginator = self.s3.get_paginator("list_objects_v2")
-            for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
-                for item in page.get("Contents", []):
-                    key = item["Key"]
-                    if not key.endswith(".parquet") or key in seen_keys:
-                        continue
-                    seen_keys.add(key)
-                    response = self.s3.get_object(Bucket=self.bucket_name, Key=key)
-                    table = pq.read_table(
-                        BytesIO(response["Body"].read()),
-                        columns=required_columns,
-                        filters=[("sync_id", "==", sync_id)],
-                    )
-                    if table.num_rows == 0:
-                        continue
-                    frame = table.to_pandas()
-                    rows.extend(frame.to_dict(orient="records"))
+            try:
+                response = self.s3.get_object(Bucket=self.bucket_name, Key=key)
+            except ClientError as exc:
+                if exc.response["Error"]["Code"] in ("NoSuchKey", "404"):
+                    logger.warning("Compacted browser history not found: key=%s", key)
+                    continue
+                raise
+            table = pq.read_table(
+                BytesIO(response["Body"].read()),
+                columns=required_columns,
+                filters=[("sync_id", "==", sync_id)],
+            )
+            if table.num_rows == 0:
+                continue
+            frame = table.to_pandas()
+            rows.extend(frame.to_dict(orient="records"))
         return rows
 
     def save_watch_events(

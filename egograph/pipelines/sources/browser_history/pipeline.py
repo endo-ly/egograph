@@ -198,7 +198,12 @@ def run_browser_history_compact_maintenance(
 
 
 def compact_from_event_context(run: WorkflowRun) -> dict[str, object]:
-    """event run の result_summary から対象月を取り出して compact する。"""
+    """event run の result_summary から対象月を取り出して compact し、
+    続けて YouTube ingest を enqueue する。
+
+    result_summary に youtube_ingest (sync_id, target_months) が含まれていれば
+    compact 成功後に YouTube ingest ワークフローを event として積む。
+    """
     raw_summary = run.result_summary or {}
     raw_targets = raw_summary.get("compaction_targets")
     targets = _parse_event_targets(raw_targets)
@@ -208,7 +213,96 @@ def compact_from_event_context(run: WorkflowRun) -> dict[str, object]:
             "operation": "compact",
             "target_months": [],
         }
-    return run_browser_history_compact(targets)
+    result = run_browser_history_compact(targets)
+
+    # compact 成功後に YouTube ingest を enqueue
+    youtube_context = raw_summary.get("youtube_ingest")
+    if youtube_context and isinstance(youtube_context, dict):
+        _enqueue_youtube_ingest_via_db(youtube_context)
+
+    return result
+
+
+def _enqueue_youtube_ingest_via_db(
+    youtube_context: dict[str, Any],
+) -> None:
+    """DB に直接接続して YouTube ingest event run を enqueue する。
+
+    step 関数は service にアクセスできないため、最小限の DB 接続を
+    構築して enqueue する。
+    """
+    import threading  # noqa: PLC0415
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    from pipelines.config import PipelinesConfig  # noqa: PLC0415
+    from pipelines.domain.workflow import (  # noqa: PLC0415
+        QueuedReason,
+        TriggerType,
+    )
+    from pipelines.infrastructure.db.connection import (  # noqa: PLC0415
+        connect as db_connect,
+    )
+    from pipelines.infrastructure.db.schema import initialize_schema  # noqa: PLC0415
+    from pipelines.infrastructure.db.workflow_repository import (  # noqa: PLC0415
+        WorkflowRepository,
+    )
+    from pipelines.workflows.registry import get_workflows  # noqa: PLC0415
+
+    sync_id = youtube_context.get("sync_id")
+    raw_months = youtube_context.get("target_months")
+    if not isinstance(sync_id, str) or not sync_id.strip():
+        logger.warning("youtube_ingest context missing sync_id, skipping enqueue")
+        return
+    if not isinstance(raw_months, list) or not raw_months:
+        logger.warning("youtube_ingest context missing target_months, skipping enqueue")
+        return
+
+    target_months = [
+        {"year": m["year"], "month": m["month"]}
+        for m in raw_months
+        if isinstance(m, dict)
+        and isinstance(m.get("year"), int)
+        and isinstance(m.get("month"), int)
+    ]
+    if not target_months:
+        logger.warning(
+            "youtube_ingest context has no valid target_months, skipping enqueue"
+        )
+        return
+
+    try:
+        config = PipelinesConfig()
+        conn = db_connect(config.database_path)
+        initialize_schema(conn)
+        db_mutex = threading.RLock()
+        workflow_repo = WorkflowRepository(conn, mutex=db_mutex)
+        workflow_repo.register_workflows(get_workflows())
+
+        from pipelines.infrastructure.db.run_repository import (  # noqa: PLC0415
+            RunRepository,
+        )
+
+        run_repo = RunRepository(workflow_repo, conn, mutex=db_mutex)
+        run_repo.enqueue_run(
+            workflow_id=_YOUTUBE_INGEST_WORKFLOW_ID,
+            trigger_type=TriggerType.EVENT,
+            queued_reason=QueuedReason.EVENT_ENQUEUE,
+            requested_by="compact_step",
+            scheduled_at=datetime.now(tz=UTC),
+            result_summary={
+                "sync_id": sync_id,
+                "target_months": target_months,
+            },
+        )
+        logger.info(
+            "Enqueued youtube_ingest_workflow for sync_id=%s after compact",
+            sync_id,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to enqueue youtube_ingest_workflow for sync_id=%s",
+            sync_id,
+        )
 
 
 def _parse_event_targets(raw_targets: Any) -> tuple[CompactionTarget, ...]:
