@@ -1,3 +1,0 @@
-[workspace]
-members = ["egopulse"]
-resolver = "2"
