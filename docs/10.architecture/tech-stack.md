@@ -27,17 +27,17 @@
 | Lint/Format | Ruff |
 | テスト | pytest, pytest-cov |
 
-## Backend (Agent API)
+## Backend (Data API / MCP Server)
 
 | カテゴリ | 技術 |
 |---|---|
 | Web Framework | FastAPI + Uvicorn |
 | 分析エンジン | DuckDB `:memory:` + httpfs |
 | 会話履歴 | SQLite (WAL) |
-| HTTP Client | httpx (LLM API呼び出し) |
+| HTTP Client | httpx |
 | バリデーション | Pydantic |
-| LLM Provider | OpenAI, Anthropic, OpenRouter (統一クライアント) |
-| エージェント | 自前 ToolExecutor |
+| MCP | FastMCP / RMCP 互換クライアント想定 |
+| ツール実行 | 自前 ToolExecutor |
 | Lint/Format | Ruff |
 | テスト | pytest, pytest-cov |
 

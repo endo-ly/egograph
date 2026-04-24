@@ -14,7 +14,7 @@
 EgoGraphは、この課題を「データの統合」で解決する。
 
 - **データ層（EgoGraph）**: 各種サービスからデータを定期収集し、Parquetファイルとして一元管理する。一度集めればDuckDBで自由にクエリできるため、データをエクスポートして死蔵させることはない。
-- **AIエージェント** — [EgoPulse](https://github.com/endo-ly/egopulse)（別レポジトリ）が EgoGraph の蓄積データにツール経由でアクセスし、個人の文脈に基づいた回答を返す
+- **AIエージェント** — [EgoPulse](https://github.com/endo-ly/egopulse)（別レポジトリ）が EgoGraph を主要なデータソースのひとつとして利用し、個人の文脈に基づいた対話や自律実行を担う
 
 ## Quick Start
 
@@ -39,7 +39,7 @@ uv sync
 # Pipelines Service 起動（スケジュール駆動でデータ収集）
 uv run python -m egograph.pipelines.main serve
 
-# Agent API サーバー起動 → http://localhost:8000/docs
+# Data API / MCP Server 起動 → http://localhost:8000/docs
 uv run python -m egograph.backend.main
 ```
 
@@ -63,7 +63,7 @@ cd frontend
 - **マルチソース収集** — Spotify、ブラウザ履歴、GitHub、Google Activity、ローカルミラー同期に対応
 - **Parquet + R2** — 分析用データを Parquet 形式で Cloudflare R2 またはローカルに保存
 - **DuckDB 即時分析** — `:memory:` モードで R2 から直接 Parquet を読み込み、サーバーレスで SQL 分析
-- **Agent API** — LLM が定義済みツールを呼び出して蓄積データにアクセスし、ユーザーの問い合わせに応答する
+- **Data API + MCP Server** — REST API と MCP で蓄積データへのアクセスを提供し、可視化や外部エージェント連携の土台になる
 - **増分取り込み** — カーソルで前回位置を追跡し、差分のみを取得
 
 ### Frontend — Mobile App
@@ -79,10 +79,8 @@ cd frontend
 | Component | Status | Notes |
 |-----------|--------|-------|
 | EgoGraph Pipelines | Working | 常駐 Pipelines Service。Spotify / ブラウザ履歴 / GitHub / Google Activity 対応済み |
-| EgoGraph Backend | Working | FastAPI + DuckDB + LLM Tool Use |
+| EgoGraph Backend | Working | FastAPI + DuckDB + REST API / MCP Server |
 | Frontend (Android) | Active Development | チャット UI 実装済み。データ可視化は WIP |
-
-> 個人プロジェクトとして開発中のため、破壊的変更が随時発生します。
 
 ## Documentation
 
