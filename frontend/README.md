@@ -1,15 +1,14 @@
 # EgoGraph Android App (KMP)
 
-**Kotlin Multiplatform + Compose Multiplatform** のネイティブ Android チャットアプリケーション。
+**Kotlin Multiplatform + Compose Multiplatform** のネイティブ Android companion アプリケーション。
 
 ## 概要
 
-EgoGraph エージェントと対話するための ChatGPT ライクなインターフェースです。
-React + Capacitor から Kotlin Multiplatform に移行し、ネイティブ Android 体験を提供します。
+EgoGraph のデータ閲覧・可視化・設定を担う companion app です。React + Capacitor から Kotlin Multiplatform に移行し、ネイティブ Android 体験を提供します。将来的には、必要に応じて [EgoPulse](https://github.com/endo-ly/egopulse) と連携する補助UIとしても利用できます。
 
 - **Native Android**: Compose Multiplatform によるネイティブ UI
 - **MVVM**: 状態管理
-- **SSE Streaming**: リアルタイムチャット応答
+- **Companion UI**: データ閲覧、設定、将来の EgoPulse 連携UI
 - **Offline First**: ローカルストレージとキャッシング
 
 ## アーキテクチャ

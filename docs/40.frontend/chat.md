@@ -1,4 +1,6 @@
-# Chat 機能設計
+# Chat / Companion Surface 設計
+
+> 注: この文書は現行の対話UI実装をもとにした設計メモ。Frontend の主軸はデータ可視化へ寄せる予定であり、この画面は将来的に EgoGraph の探索UIまたは EgoPulse 連携用の companion surface として再整理する可能性がある。
 
 ## 画面構成
 
