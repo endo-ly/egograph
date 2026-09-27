@@ -199,6 +199,56 @@ sudo systemctl start egograph-backend
 sudo systemctl status egograph-backend
 ```
 
+### 5.1 Tailscale app capability 認証（任意）
+
+API Key を渡したくないクライアント（シェルを持つ AI エージェント等）には、Tailnet ACL で app capability を付与し、API Key なしで Backend を利用させる。仕組みは [architecture/backend.md](../architecture/backend.md#tailscale-app-capability) を参照。
+
+capability 名は `domain/path` 形式の任意の文字列とし、自分が管理するドメイン配下の名前を使う。以降の例では `<capability>` と表記する（例: `example.com/cap/egograph-api`）。
+
+1. Tailscale 管理画面の Access controls（Tailnet policy file）で、対象端末に capability を付与する。`src` には capability を与える端末（Tailscale IP、hosts エイリアス、tag 等）、`dst` には `egograph-prod` を指定する。grant の値は ASCII のみで記述する。`app` は capability を付与するだけでネットワーク到達は許可しないため、対象端末から `egograph-prod` の 443 番へ届くことは既存の ACL / grants で別途許可しておく。
+
+   ```jsonc
+   {
+     "hosts": {
+       "egograph-prod": "<egograph-prod の Tailscale IP>",
+       "agent-windows": "<エージェント端末の Tailscale IP>"
+     },
+     "grants": [
+       {
+         "src": ["agent-windows"],
+         "dst": ["egograph-prod"],
+         "app": {
+           "<capability>": [{}]
+         }
+       }
+     ]
+   }
+   ```
+
+2. `/etc/egograph/backend.env` に capability 名を追記し、Backend を再起動する。
+
+   ```dotenv
+   BACKEND_TAILSCALE_APP_CAPABILITY=<capability>
+   ```
+
+   ```bash
+   sudo systemctl restart egograph-backend
+   ```
+
+3. `tailscale serve` を `--accept-app-caps` 付きで設定し直す。既存の公開設定と同じポート・転送先を指定する。
+
+   ```bash
+   sudo tailscale serve --bg --accept-app-caps <capability> http://127.0.0.1:8000
+   sudo tailscale serve status
+   ```
+
+4. capability を付与した端末から、API Key なしで 200、付与していない端末から 401 になることを確認する。
+
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}\n" \
+     "https://egograph-prod.<tailnet>.ts.net/v1/data/github/repositories?limit=1"
+   ```
+
 ## 6. GitHub Actions で main をデプロイ
 
 main への push をトリガーに本番へデプロイする。

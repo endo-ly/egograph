@@ -216,7 +216,7 @@ R2Config → SpotifyRepository → GetTopTracksTool ─┐
 FastMCP を使用し、ToolRegistry のツールを MCP プロトコルで公開する。
 
 - **エンドポイント**: `http://<host>:<port>/mcp`（Streamable HTTP transport）
-- **認証**: `BACKEND_API_KEY` 設定時、`X-API-Key` ヘッダーが必須
+- **認証**: `BACKEND_API_KEY` 設定時、`X-API-Key` ヘッダーまたは Tailscale app capability が必須（[認証・セキュリティ](#認証セキュリティ)参照）
 - **ハンドラ**:
   - `list_tools`: レジストリの全ツールスキーマを返す
   - `call_tool`: 指定ツールを実行し、JSON シリアライズした結果を `TextContent` で返す
@@ -246,13 +246,30 @@ FastMCP を使用し、ToolRegistry のツールを MCP プロトコルで公開
 
 ## 認証・セキュリティ
 
-### API Key 認証
+### 認証
 
-`BACKEND_API_KEY` 環境変数が設定されている場合、`_ApiKeyAuthMiddleware` が除外パスを除く全リクエストで `X-API-Key` ヘッダーを検証する。`BACKEND_ENV=production` では、アプリ生成時に API key が必須であることを検証する。
+`BACKEND_API_KEY` 環境変数が設定されている場合、`_ApiKeyAuthMiddleware` が除外パスを除く全リクエストを検証し、次のいずれかを満たせば通過させる。`BACKEND_ENV=production` では、アプリ生成時に API key が必須であることを検証する。
+
+| 方式 | 条件 | 用途 |
+|---|---|---|
+| API Key | `X-API-Key` ヘッダーが `BACKEND_API_KEY` と一致 | キーを保持できるクライアント（Frontend、EgoPulse 等） |
+| Tailscale app capability | `BACKEND_TAILSCALE_APP_CAPABILITY` 設定時、`Tailscale-App-Capabilities` ヘッダーにその capability が含まれる | キーを渡したくないクライアント（シェルを持つ AI エージェント等） |
 
 - **対象**: REST API + MCP（共通）
 - **除外パス**: `/health`, `/v1/health`, `/docs`, `/redoc`, `/openapi.json`
-- **検証**: `secrets.compare_digest` でタイミングセーフ比較
+- **API Key 検証**: `secrets.compare_digest` でタイミングセーフ比較
+- **失敗時**: どちらも満たさない場合は 401
+
+#### Tailscale app capability
+
+`tailscale serve --accept-app-caps <capability>` で公開すると、serve は Tailnet ACL の grants でその capability を付与された送信元端末からのリクエストにだけ、`Tailscale-App-Capabilities` ヘッダー（capability 名をキーとする JSON object）を設定して Backend へ転送する。Backend はこのヘッダーに `BACKEND_TAILSCALE_APP_CAPABILITY` が含まれていれば、API Key なしで認証を通過させる。
+
+- **偽装耐性**: serve はクライアントが送った同名ヘッダーを削除してから設定し直すため、serve 経由では偽装できない。Backend は `127.0.0.1` にバインドし、serve を経由しない経路を持たないことが前提
+- **許可範囲**: capability を付与する端末は ACL で個別に指定する。付与された端末は API Key 保持者と同じ範囲（REST + MCP）にアクセスできる
+- **解析失敗**: JSON object として解析できないヘッダー値は認証失敗として扱う。serve は非 ASCII を含む値を RFC 2047 でエンコードするため、grant の値は ASCII に限定する
+- **Funnel**: Funnel 経由のリクエストには serve がヘッダーを設定しないため、この方式では認証されない
+
+設定手順は [deploy/backend.md](../deploy/backend.md#51-tailscale-app-capability-認証任意) を参照。
 
 ### CORS
 
@@ -283,6 +300,7 @@ FastMCP を使用し、ToolRegistry のツールを MCP プロトコルで公開
 | `reload` | `BACKEND_RELOAD` | `True` | ホットリロード |
 | `environment` | `BACKEND_ENV` | `development` | 実行環境（`development` / `production`） |
 | `api_key` | `BACKEND_API_KEY` | `None` | API Key（production では必須） |
+| `tailscale_app_capability` | `BACKEND_TAILSCALE_APP_CAPABILITY` | `None` | API Key の代わりに認証を通過させる Tailscale app capability 名（`domain/path` 形式。空で無効） |
 | `cors_origins` | `CORS_ORIGINS` | `""` | CORS 許可オリジン（空で無効） |
 | `log_level` | `LOG_LEVEL` | `INFO` | ログレベル |
 | `mcp_allowed_hosts` | `MCP_ALLOWED_HOSTS` | `[]` | MCP Host 許可リスト |
@@ -316,7 +334,7 @@ FastMCP を使用し、ToolRegistry のツールを MCP プロトコルで公開
 | `FileNotFoundError` | 200 | Parquet ファイル未存在（`data_available=False`） |
 | 起動後の DuckDB / R2 障害 | 503 | readiness failure（`status=error`、`error=invalid_readiness: <sanitized reason>`） |
 | 本番起動時の設定障害 | HTTP 応答なし | app生成前にプロセス起動を失敗させる |
-| 認証エラー | 401 | API Key 不正 |
+| 認証エラー | 401 | API Key 不正かつ Tailscale app capability なし |
 | MCP ツール不明 | - | `ValueError("Unknown tool")` |
 | MCP 実行エラー | - | `RuntimeError` でラップ |
 
