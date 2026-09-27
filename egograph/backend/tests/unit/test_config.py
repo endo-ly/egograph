@@ -107,6 +107,53 @@ class TestBackendConfig:
         assert config.environment == "development"
         assert config.api_key is None
 
+    def test_tailscale_app_capability_defaults_to_none(self, monkeypatch):
+        """Tailscale app capability は未設定なら無効になる。"""
+        # Arrange
+        monkeypatch.delenv("BACKEND_TAILSCALE_APP_CAPABILITY", raising=False)
+
+        # Act
+        config = BackendConfig()
+
+        # Assert
+        assert config.tailscale_app_capability is None
+
+    def test_tailscale_app_capability_reads_env(self, monkeypatch):
+        """BACKEND_TAILSCALE_APP_CAPABILITY を前後空白を除いてロードする。"""
+        # Arrange
+        monkeypatch.setenv(
+            "BACKEND_TAILSCALE_APP_CAPABILITY", " example.com/cap/egograph-read "
+        )
+
+        # Act
+        config = BackendConfig()
+
+        # Assert
+        assert config.tailscale_app_capability == "example.com/cap/egograph-read"
+
+    @pytest.mark.parametrize("capability", ["", "   "])
+    def test_tailscale_app_capability_treats_blank_as_none(
+        self, monkeypatch, capability
+    ):
+        """空白だけの Tailscale app capability は未設定として扱う。"""
+        # Arrange
+        monkeypatch.setenv("BACKEND_TAILSCALE_APP_CAPABILITY", capability)
+
+        # Act
+        config = BackendConfig()
+
+        # Assert
+        assert config.tailscale_app_capability is None
+
+    def test_tailscale_app_capability_rejects_name_without_domain(self, monkeypatch):
+        """domain/path 形式でない Tailscale app capability を拒否する。"""
+        # Arrange
+        monkeypatch.setenv("BACKEND_TAILSCALE_APP_CAPABILITY", "egograph-read")
+
+        # Act & Assert
+        with pytest.raises(ValidationError, match="invalid_tailscale_app_capability"):
+            BackendConfig()
+
     @pytest.mark.parametrize("environment", ["prod", "Production", "production "])
     def test_from_env_rejects_unknown_backend_environment(
         self, monkeypatch, environment

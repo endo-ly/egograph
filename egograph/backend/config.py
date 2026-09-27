@@ -42,6 +42,24 @@ class BackendConfig(BaseSettings):
 
     # オプショナル認証
     api_key: SecretStr | None = Field(None, alias="BACKEND_API_KEY")
+    # tailscale serve --accept-app-caps で転送される app capability 名。
+    # この capability を ACL で付与された端末は API Key なしで認証を通過する。
+    tailscale_app_capability: str | None = Field(
+        None, alias="BACKEND_TAILSCALE_APP_CAPABILITY"
+    )
+
+    @field_validator("tailscale_app_capability", mode="before")
+    @classmethod
+    def _normalize_tailscale_app_capability(cls, v: str | None) -> str | None:
+        """capability 名を正規化し、Tailscale の domain/path 形式を検証する。"""
+        if v is None or not v.strip():
+            return None
+        capability = v.strip()
+        if "/" not in capability:
+            raise ValueError(
+                "invalid_tailscale_app_capability: must be in domain/path form"
+            )
+        return capability
 
     # CORS設定
     cors_origins: str = Field("", alias="CORS_ORIGINS")  # カンマ区切り。空で無効

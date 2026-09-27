@@ -5,6 +5,7 @@ MCP エンドポイントは /mcp パスにマウントされる。
 """
 
 import contextlib
+import json
 import logging
 import secrets
 
@@ -30,12 +31,37 @@ from backend.mcp_server import create_mcp_server
 logger = logging.getLogger(__name__)
 
 
-class _ApiKeyAuthMiddleware:
-    """REST API と MCP エンドポイント全体に適用されるAPI Key認証。
+_TAILSCALE_APP_CAPABILITIES_HEADER = "tailscale-app-capabilities"
 
-    BACKEND_API_KEYが設定されている場合、全リクエストでX-API-Keyヘッダーを検証する。
+
+def _has_tailscale_app_capability(header_value: str, capability: str) -> bool:
+    """tailscale serve が付与した app capability に指定名が含まれるか判定する。
+
+    tailscale serve は ``--accept-app-caps`` で許可された capability のうち、
+    送信元端末に ACL で付与されたものを JSON object としてヘッダーに設定する。
+    クライアントが送った同名ヘッダーは serve が削除してから設定し直すため、
+    serve 経由のリクエストでは偽装できない。
+    解析できない値は認証失敗として扱う。
+    """
+    try:
+        capabilities = json.loads(header_value)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(capabilities, dict) and capability in capabilities
+
+
+class _ApiKeyAuthMiddleware:
+    """REST API と MCP エンドポイント全体に適用される認証。
+
+    BACKEND_API_KEYが設定されている場合、除外パス以外の全リクエストで
+    次のいずれかを満たすことを要求する。
+
+    - X-API-Key ヘッダーが BACKEND_API_KEY と一致する
+    - BACKEND_TAILSCALE_APP_CAPABILITY 設定時、tailscale serve が付与した
+      Tailscale-App-Capabilities ヘッダーにその capability が含まれる
+
     ヘルスチェックとドキュメントパスは除外。
-    設定されていない場合は認証をスキップする。
+    BACKEND_API_KEY が設定されていない場合は認証をスキップする。
 
     BaseHTTPMiddleware ではなく純粋 ASGI ミドルウェアとして実装。
     BaseHTTPMiddleware は app.mount() したサブアプリとの組み合わせで
@@ -46,9 +72,15 @@ class _ApiKeyAuthMiddleware:
         {"/v1/health", "/health", "/docs", "/redoc", "/openapi.json"}
     )
 
-    def __init__(self, app: ASGIApp, api_key: str):
+    def __init__(
+        self,
+        app: ASGIApp,
+        api_key: str,
+        tailscale_app_capability: str | None = None,
+    ):
         self.app = app
         self._api_key = api_key
+        self._tailscale_app_capability = tailscale_app_capability
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -62,9 +94,8 @@ class _ApiKeyAuthMiddleware:
 
         # scope["headers"] は [(b"key", b"value"), ...] 形式
         headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
-        api_key = headers.get("x-api-key", "")
 
-        if not api_key or not secrets.compare_digest(api_key, self._api_key):
+        if not self._is_authorized(headers):
             response = JSONResponse(
                 status_code=401, content={"detail": "Invalid API key"}
             )
@@ -72,6 +103,21 @@ class _ApiKeyAuthMiddleware:
             return
 
         await self.app(scope, receive, send)
+
+    def _is_authorized(self, headers: dict[str, str]) -> bool:
+        """API Key または Tailscale app capability で認証できるか判定する。"""
+        api_key = headers.get("x-api-key", "")
+        if api_key and secrets.compare_digest(api_key, self._api_key):
+            return True
+
+        capabilities_header = headers.get(_TAILSCALE_APP_CAPABILITIES_HEADER)
+        return (
+            self._tailscale_app_capability is not None
+            and capabilities_header is not None
+            and _has_tailscale_app_capability(
+                capabilities_header, self._tailscale_app_capability
+            )
+        )
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
@@ -147,10 +193,12 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
-    # API Key認証（REST + MCP 共通）
+    # API Key / Tailscale app capability 認証（REST + MCP 共通）
     if config.api_key is not None:
         app.add_middleware(
-            _ApiKeyAuthMiddleware, api_key=str(config.api_key.get_secret_value())
+            _ApiKeyAuthMiddleware,
+            api_key=str(config.api_key.get_secret_value()),
+            tailscale_app_capability=config.tailscale_app_capability,
         )
 
     # ルーターの登録
